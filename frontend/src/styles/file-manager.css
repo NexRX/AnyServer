@@ -1,0 +1,522 @@
+/* ─── File Manager ─── */
+
+.file-manager {
+    min-height: 400px;
+}
+
+.file-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+}
+
+.current-path {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.breadcrumbs {
+    font-size: 0.85rem;
+}
+
+.breadcrumb-link:hover {
+    text-decoration: underline;
+}
+
+.file-list {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--bg-card);
+}
+
+.file-entry {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition:
+        background var(--transition),
+        transform var(--transition);
+    font-size: 0.9rem;
+}
+
+.file-entry:last-child {
+    border-bottom: none;
+}
+
+.file-entry:hover {
+    background: var(--bg-hover);
+}
+
+.file-entry:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: -2px;
+}
+
+.file-icon {
+    flex-shrink: 0;
+    font-size: 1rem;
+    width: 1.4rem;
+    text-align: center;
+}
+
+.file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 450;
+}
+
+.file-size {
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    font-family: var(--mono);
+    min-width: 70px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.file-date {
+    flex-shrink: 0;
+}
+
+/* ─── File Editor ─── */
+
+.file-editor {
+    display: flex;
+    flex-direction: column;
+    height: 550px;
+}
+
+.file-editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.file-path {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-editor-content {
+    flex: 1;
+    background: #080a0e;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 0.84rem;
+    line-height: 1.6;
+    resize: none;
+    outline: none;
+    tab-size: 4;
+    -moz-tab-size: 4;
+    white-space: pre;
+    overflow: auto;
+    transition: border-color var(--transition);
+}
+
+.file-editor-content:focus {
+    border-color: var(--primary);
+}
+
+/* ─── File List Header ─── */
+
+.file-list-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.4rem 1rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-hover);
+}
+
+.file-list-header-name {
+    flex: 1;
+    padding-left: 2rem; /* align with icon + name */
+}
+
+.file-list-header-perms {
+    min-width: 110px;
+    text-align: center;
+}
+
+.file-list-header-date {
+    min-width: 100px;
+    text-align: right;
+}
+
+.file-list-header-size {
+    min-width: 70px;
+    text-align: right;
+}
+
+.file-list-header-actions {
+    width: 32px;
+}
+
+/* ─── File Permission Badge ─── */
+
+.file-mode {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    min-width: 110px;
+    justify-content: center;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    padding: 0.15rem 0.4rem;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    transition: all var(--transition);
+    flex-shrink: 0;
+}
+
+.file-mode:hover {
+    background: var(--bg-hover);
+    border-color: var(--border);
+    color: var(--text);
+}
+
+.file-mode-octal {
+    color: var(--primary);
+    font-weight: 600;
+}
+
+.file-mode-rwx {
+    color: var(--text-dim);
+    font-size: 0.72rem;
+}
+
+.file-mode-na {
+    min-width: 110px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.78rem;
+    flex-shrink: 0;
+    cursor: default;
+}
+
+/* ─── Chmod Dialog ─── */
+
+.chmod-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    animation: fadeInBackdrop 0.2s ease;
+}
+
+@keyframes chmod-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.chmod-dialog {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    width: 420px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.chmod-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.chmod-header h3 {
+    font-size: 1.05rem;
+    color: var(--text);
+}
+
+.chmod-close {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 1.1rem;
+    padding: 0.25rem;
+    border-radius: 4px;
+    transition:
+        color var(--transition),
+        background var(--transition);
+}
+
+.chmod-close:hover {
+    color: var(--text);
+    background: var(--bg-hover);
+}
+
+.chmod-file-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    background: var(--bg);
+    border-radius: var(--radius);
+    margin-bottom: 1rem;
+}
+
+.chmod-file-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.chmod-file-name {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text);
+    word-break: break-all;
+}
+
+.chmod-file-path {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    word-break: break-all;
+}
+
+.chmod-owner-info {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+    padding: 0.5rem 0;
+}
+
+.chmod-owner-pair {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.chmod-owner-label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.chmod-owner-value {
+    font-family: var(--mono);
+    font-size: 0.85rem;
+    color: var(--text);
+}
+
+.chmod-uid {
+    color: var(--text-dim);
+    font-size: 0.75rem;
+    margin-left: 0.2rem;
+}
+
+.chmod-mode-row {
+    display: flex;
+    align-items: flex-end;
+    gap: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.chmod-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.3rem;
+}
+
+.chmod-octal-group {
+    flex-shrink: 0;
+}
+
+.chmod-octal-input {
+    width: 5rem;
+    font-family: var(--mono);
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-align: center;
+    padding: 0.4rem 0.5rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--primary);
+    outline: none;
+    transition: border-color var(--transition);
+}
+
+.chmod-octal-input:focus {
+    border-color: var(--primary);
+}
+
+.chmod-display-group {
+    flex: 1;
+}
+
+.chmod-symbolic {
+    font-family: var(--mono);
+    font-size: 1.05rem;
+    font-weight: 500;
+    color: var(--text);
+    letter-spacing: 0.05em;
+    padding: 0.4rem 0;
+    display: block;
+}
+
+/* ─── rwx Checkbox Matrix ─── */
+
+.chmod-matrix {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-bottom: 1rem;
+}
+
+.chmod-matrix-header {
+    display: grid;
+    grid-template-columns: 80px repeat(3, 1fr);
+    background: var(--bg-hover);
+    border-bottom: 1px solid var(--border);
+    padding: 0.35rem 0;
+}
+
+.chmod-matrix-corner {
+    /* empty top-left cell */
+}
+
+.chmod-matrix-col-label {
+    text-align: center;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--text-dim);
+}
+
+.chmod-matrix-row {
+    display: grid;
+    grid-template-columns: 80px repeat(3, 1fr);
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    padding: 0.3rem 0;
+    transition: background var(--transition);
+}
+
+.chmod-matrix-row:last-child {
+    border-bottom: none;
+}
+
+.chmod-matrix-row:hover {
+    background: var(--bg-hover);
+}
+
+.chmod-matrix-row-label {
+    font-size: 0.82rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    padding-left: 0.75rem;
+}
+
+.chmod-checkbox-cell {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.chmod-checkbox-cell input[type="checkbox"] {
+    width: 1rem;
+    height: 1rem;
+    cursor: pointer;
+    accent-color: var(--primary);
+}
+
+/* ─── Preset Buttons ─── */
+
+.chmod-presets {
+    margin-bottom: 1rem;
+}
+
+.chmod-preset-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.chmod-preset-btn {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 0.25rem 0.6rem;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.chmod-preset-btn:hover {
+    background: var(--bg-hover);
+    border-color: var(--text-dim);
+    color: var(--text);
+}
+
+.chmod-preset-btn.active {
+    background: var(--primary);
+    border-color: var(--primary);
+    color: #fff;
+}
+
+/* ─── Chmod Actions ─── */
+
+.chmod-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+}
+

@@ -1,0 +1,562 @@
+/* ─── Template Grid ─── */
+
+.template-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 1rem;
+    margin-top: 1rem;
+}
+
+.template-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    transition:
+        border-color 0.15s ease,
+        box-shadow 0.15s ease;
+}
+
+.template-card:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.15);
+}
+
+.template-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+}
+
+.template-card-icon {
+    font-size: 1.5rem;
+    line-height: 1;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+}
+
+.template-card-title {
+    flex: 1;
+    min-width: 0;
+}
+
+.template-card-title h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.template-card-desc {
+    margin: 0.25rem 0 0;
+    font-size: 0.8rem;
+    color: #9ca3af;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.template-card-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.template-meta-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: #94a3b8;
+    background: rgba(148, 163, 184, 0.08);
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.template-meta-date {
+    margin-left: auto;
+}
+
+.template-card-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.6rem 0.75rem;
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 0.5rem;
+    font-size: 0.8rem;
+}
+
+.template-detail-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.template-detail-label {
+    color: #64748b;
+    flex-shrink: 0;
+    min-width: 3.5rem;
+}
+
+.template-detail-value {
+    color: #cbd5e1;
+    font-size: 0.78rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.template-card-actions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: auto;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
+}
+
+/* ─── Built-in Template Styles ─── */
+
+.template-card-builtin {
+    border-color: rgba(99, 102, 241, 0.25);
+    background: linear-gradient(
+        135deg,
+        var(--surface) 0%,
+        rgba(99, 102, 241, 0.04) 100%
+    );
+}
+
+.template-card-builtin:hover {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.25);
+}
+
+/* ─── SteamCMD disabled template card ─── */
+
+.template-card--disabled {
+    opacity: 0.55;
+    filter: grayscale(0.5);
+    pointer-events: auto;
+}
+
+.template-card--disabled:hover {
+    border-color: var(--border);
+    box-shadow: none;
+}
+
+.template-card-unavailable {
+    padding: 0.6rem 0.75rem;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 0.5rem;
+    font-size: 0.82rem;
+}
+
+.template-card-unavailable-text {
+    margin: 0 0 0.25rem;
+    color: #f87171;
+    line-height: 1.4;
+}
+
+.template-card-learn-more {
+    color: #f87171;
+    text-decoration: underline;
+    font-size: 0.8rem;
+    opacity: 0.9;
+    transition: opacity 0.15s ease;
+}
+
+.template-card-learn-more:hover {
+    opacity: 1;
+}
+
+.template-card-title-row,
+.template-select-card-title-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.template-card-title-row h3 {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #e2e8f0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.template-select-card-title-row h4 {
+    margin: 0;
+}
+
+.template-builtin-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--primary);
+    background: var(--primary-bg);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 1.4;
+}
+
+.template-select-card-builtin {
+    border-color: rgba(99, 102, 241, 0.2);
+}
+
+.template-select-card-builtin:hover {
+    border-color: var(--accent);
+}
+
+/* ─── Create Template Card (inline form) ─── */
+
+.template-create-card {
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.1);
+}
+
+.template-create-card h3 {
+    margin: 0 0 0.25rem;
+    font-size: 1.1rem;
+    color: #e2e8f0;
+}
+
+.template-create-hint {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    margin-bottom: 1.25rem;
+    line-height: 1.5;
+}
+
+/* ─── Save as Template Dialog (used in ServerDetail & ConfigEditor) ─── */
+
+.template-save-dialog {
+    background: var(--surface);
+    border: 1px solid var(--accent);
+    border-radius: 0.75rem;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 0 0 1px rgba(99, 102, 241, 0.1);
+}
+
+.template-save-dialog h3 {
+    margin: 0 0 0.25rem;
+    font-size: 1.05rem;
+    color: #e2e8f0;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Template Select Grid (Create Server → From Template)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.template-select-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-top: 0.5rem;
+}
+
+.template-select-card {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    padding: 1rem 1.25rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    cursor: pointer;
+    text-align: left;
+    color: inherit;
+    font: inherit;
+    transition:
+        border-color 0.15s ease,
+        background 0.15s ease;
+}
+
+.template-select-card:hover {
+    border-color: var(--accent);
+    background: rgba(99, 102, 241, 0.04);
+}
+
+.template-select-card-disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    filter: grayscale(0.6);
+}
+
+.template-select-card-disabled:hover {
+    border-color: var(--border);
+    background: var(--surface);
+}
+
+.template-select-card-disabled .template-select-card-arrow {
+    display: none;
+}
+
+.template-select-card-steamcmd-warn {
+    border-color: rgba(239, 68, 68, 0.25);
+}
+
+.template-select-card-steamcmd-warn:hover {
+    border-color: rgba(239, 68, 68, 0.45);
+    background: rgba(239, 68, 68, 0.04);
+}
+
+.template-select-card-steamcmd-notice {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: rgba(239, 68, 68, 0.15);
+    border-radius: 4px;
+    font-size: 0.78rem;
+    color: #f87171;
+}
+
+.template-select-card-steamcmd-ok {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-top: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    background: rgba(34, 197, 94, 0.1);
+    border-radius: 4px;
+    font-size: 0.78rem;
+    color: #22c55e;
+}
+
+/* ─── Wizard SteamCMD warning banner ─── */
+
+.wizard-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 0.85rem 1rem;
+    margin-bottom: 1rem;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    border-radius: 0.5rem;
+}
+
+.wizard-warning__icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+    line-height: 1.4;
+}
+
+.wizard-warning__content {
+    flex: 1;
+    min-width: 0;
+    font-size: 0.88rem;
+    color: #e2e8f0;
+    line-height: 1.5;
+}
+
+.wizard-warning__content strong {
+    display: block;
+    margin-bottom: 0.2rem;
+    color: #f87171;
+}
+
+.wizard-warning__content p {
+    margin: 0 0 0.4rem;
+    color: #9ca3af;
+    font-size: 0.84rem;
+}
+
+.wizard-warning__link {
+    color: #f87171;
+    text-decoration: underline;
+    font-size: 0.82rem;
+    opacity: 0.9;
+    transition: opacity 0.15s ease;
+}
+
+.wizard-warning__link:hover {
+    opacity: 1;
+}
+
+.template-select-card-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+}
+
+.template-select-card-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.template-select-card-body h4 {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #e2e8f0;
+}
+
+.template-select-card-desc {
+    margin: 0.2rem 0 0;
+    font-size: 0.8rem;
+    color: #9ca3af;
+    line-height: 1.4;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.template-select-card-meta {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.4rem;
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+.template-select-card-arrow {
+    font-size: 1.2rem;
+    color: #475569;
+    flex-shrink: 0;
+    transition:
+        color 0.15s ease,
+        transform 0.15s ease;
+}
+
+.template-select-card:hover .template-select-card-arrow {
+    color: var(--accent);
+    transform: translateX(3px);
+}
+
+/* ─── Template Selected Banner ─── */
+
+.template-selected-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.85rem 1.15rem;
+    background: rgba(99, 102, 241, 0.06);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 0.75rem;
+    margin-bottom: 1.25rem;
+}
+
+.template-selected-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.template-selected-icon {
+    font-size: 1.4rem;
+    flex-shrink: 0;
+}
+
+.template-selected-info strong {
+    color: #e2e8f0;
+    font-size: 0.95rem;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Pipelines Tab (ServerDetail)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.pipelines-tab {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.pipeline-action-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 0 1rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border-dim, rgba(148, 163, 184, 0.1));
+}
+
+.pipeline-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+}
+
+.pipeline-section:hover {
+    border-color: rgba(148, 163, 184, 0.2);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Responsive — Templates & Pipelines
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+    .template-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .template-card-actions {
+        flex-wrap: wrap;
+    }
+
+    .template-selected-banner {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .pipeline-section {
+        padding: 0.85rem;
+    }
+
+    .template-create-card {
+        padding: 1rem;
+    }
+
+    .template-save-dialog {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .template-grid {
+        gap: 0.75rem;
+    }
+
+    .template-card {
+        padding: 1rem;
+    }
+
+    .template-select-card {
+        padding: 0.85rem 1rem;
+    }
+
+    .template-select-card-meta {
+        flex-wrap: wrap;
+    }
+}
+

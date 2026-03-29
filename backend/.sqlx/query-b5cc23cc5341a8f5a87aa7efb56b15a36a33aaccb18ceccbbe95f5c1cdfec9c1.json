@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM sandbox_profiles WHERE server_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "b5cc23cc5341a8f5a87aa7efb56b15a36a33aaccb18ceccbbe95f5c1cdfec9c1"
+}

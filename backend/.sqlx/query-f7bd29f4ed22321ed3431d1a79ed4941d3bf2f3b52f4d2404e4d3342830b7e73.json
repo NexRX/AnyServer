@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO server_alerts (server_id, config) VALUES (?, ?) ON CONFLICT(server_id) DO UPDATE SET config = excluded.config",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 2
+    },
+    "nullable": []
+  },
+  "hash": "f7bd29f4ed22321ed3431d1a79ed4941d3bf2f3b52f4d2404e4d3342830b7e73"
+}

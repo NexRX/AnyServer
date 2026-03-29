@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT config FROM server_alerts WHERE server_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "config",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "5ec925209ccefb6aa3c20dfc3abefcc05117ecf1f1526eec36dcab818f718616"
+}

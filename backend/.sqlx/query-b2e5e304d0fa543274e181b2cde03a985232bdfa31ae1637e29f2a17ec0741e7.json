@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE templates SET name = ?, description = ?, config = ?, updated_at = ? WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "b2e5e304d0fa543274e181b2cde03a985232bdfa31ae1637e29f2a17ec0741e7"
+}

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE servers SET config = ?, updated_at = ?, parameter_values = ?, installed = ?,\n               installed_at = ?, updated_via_pipeline_at = ?, installed_version = ?, source_template_id = ?\n               WHERE id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 9
+    },
+    "nullable": []
+  },
+  "hash": "0ba37740cf4ac32434ca86608cd77a764c9a7c4cc70bab625380ae60fa297929"
+}

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT token_generation FROM users WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "token_generation",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "b0ecbe3eb29e40a7e8fb3f604b0ff7ae26626c19b717117b9aafe1c8e607a3e4"
+}

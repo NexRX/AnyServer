@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "UPDATE invite_codes\n               SET assigned_role = ?, assigned_permissions = ?\n               WHERE id = ? AND redeemed_by IS NULL",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 3
+    },
+    "nullable": []
+  },
+  "hash": "fe17fe5c445174665be8e55b79af27e9342367285eb4bfe48d6bb1930d1751c5"
+}

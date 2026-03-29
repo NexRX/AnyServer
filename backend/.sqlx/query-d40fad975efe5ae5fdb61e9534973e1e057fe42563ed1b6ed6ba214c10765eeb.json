@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO permissions (id, user_id, server_id, level) VALUES (?, ?, ?, ?)\n               ON CONFLICT(user_id, server_id) DO UPDATE SET level = excluded.level",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 4
+    },
+    "nullable": []
+  },
+  "hash": "d40fad975efe5ae5fdb61e9534973e1e057fe42563ed1b6ed6ba214c10765eeb"
+}

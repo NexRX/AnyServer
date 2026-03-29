@@ -1,0 +1,80 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT id, code, created_by, assigned_role, assigned_permissions, assigned_capabilities,\n                      expires_at, redeemed_by, redeemed_at, created_at, label\n               FROM invite_codes WHERE id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "code",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_by",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "assigned_role",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "assigned_permissions",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "assigned_capabilities",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "expires_at",
+        "ordinal": 6,
+        "type_info": "Text"
+      },
+      {
+        "name": "redeemed_by",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "redeemed_at",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "label",
+        "ordinal": 10,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      false,
+      true
+    ]
+  },
+  "hash": "195c0ed7a786d2fcff436d0c828943484978c0583dcd1a874a1b0714dd873b3f"
+}

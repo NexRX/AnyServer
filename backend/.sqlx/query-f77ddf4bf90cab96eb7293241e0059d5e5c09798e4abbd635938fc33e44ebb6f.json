@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) > 0 FROM invite_codes WHERE code = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "COUNT(*) > 0",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "f77ddf4bf90cab96eb7293241e0059d5e5c09798e4abbd635938fc33e44ebb6f"
+}

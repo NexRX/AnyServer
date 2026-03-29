@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "DELETE FROM server_alerts WHERE server_id = ?",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": []
+  },
+  "hash": "9dbed23142f48210eedb8e43f2913279d7adfdacf9cfb919f1cd081c9973b016"
+}

@@ -1,0 +1,277 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+ * AnyServer — Master stylesheet (barrel)
+ *
+ * This file imports all style partials. Each partial owns a logical slice of
+ * the UI so that individual files stay small and navigable.
+ *
+ * Partial breakdown:
+ *   global.css        — CSS variables, resets, scrollbar, typography, navbar,
+ *                        mobile nav, layout, buttons, spinner
+ *   dashboard.css     — Server grid, dashboard layout, sidebar, filters,
+ *                        pagination, server cards, resource mini-bars
+ *   status.css        — Status badges, dots, pulse, pid, status tooltip
+ *   console.css       — Console output, input, toolbar, separators, progress
+ *   file-manager.css  — File list, editor, permissions, chmod dialog
+ *   forms.css         — Config editor, form groups, inputs, selects, checkboxes,
+ *                        danger zone
+ *   feedback.css      — Loader, skeleton, error/success messages, toasts,
+ *                        floating toasts, animations
+ *   auth.css          — Auth pages, nav user, not-found page
+ *   admin.css         — Admin panel, user list, settings, responsive
+ *   pipeline.css      — Param hints, pipeline editor, step editor, parameter
+ *                        definition editor, wizard/create server
+ *   templates.css     — Template grid, cards, select, save dialog, builtin,
+ *                        SteamCMD, pipelines tab, pipeline sections
+ *   server-detail.css — WS disconnect banner, shutdown panel
+ *   system-health.css — Health dashboard, cards, bars, cores, network,
+ *                        resources tab
+ *   components.css    — Markdown, alert mute, modal, global error fallback,
+ *                        server access manager, rate-limit banner,
+ *                        searchable select
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+@import "./styles/global.css";
+@import "./styles/dashboard.css";
+@import "./styles/status.css";
+@import "./styles/console.css";
+@import "./styles/file-manager.css";
+@import "./styles/forms.css";
+@import "./styles/feedback.css";
+@import "./styles/auth.css";
+@import "./styles/admin.css";
+@import "./styles/pipeline.css";
+@import "./styles/templates.css";
+@import "./styles/server-detail.css";
+@import "./styles/system-health.css";
+@import "./styles/components.css";
+
+/* ─────────────────────────────────────────────────────────────────────────────
+ * New utility / component classes introduced during the ServerDetail refactor.
+ *
+ * These replace the inline style={{}} objects that were scattered throughout
+ * the old monolithic ServerDetail.tsx. They live here (rather than in a
+ * partial) so they're easy to find and migrate later.
+ * ───────────────────────────────────────────────────────────────────────────── */
+
+/* ── Server detail: metadata row under the page title ── */
+
+.server-detail-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.25rem;
+    flex-wrap: wrap;
+}
+
+/* ── Tab content helper ── */
+
+.tab-content-padded {
+    padding: 0.5rem 0;
+}
+
+/* ── Install dialog (extracted component) ── */
+
+.install-dialog-content {
+    max-width: 460px;
+    width: 90%;
+}
+
+.install-dialog-title {
+    margin: 0 0 0.75rem 0;
+    font-size: 1.15rem;
+    text-transform: none;
+    color: var(--text);
+    letter-spacing: normal;
+}
+
+.install-dialog-message {
+    margin: 0 0 1.5rem 0;
+    color: var(--text-muted, #888);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.install-dialog-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.install-dialog-btn {
+    width: 100%;
+}
+
+/* ── Kill processes dialog (extracted component) ── */
+
+.kill-processes-dialog {
+    width: 520px;
+    max-width: 95vw;
+}
+
+.kill-processes-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.25rem;
+}
+
+.kill-processes-title {
+    margin: 0;
+    color: #ef4444;
+    font-size: 1.1rem;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.kill-processes-description {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    margin: 0.75rem 0 1rem;
+    line-height: 1.5;
+}
+
+.kill-processes-warn {
+    color: #f87171;
+}
+
+.kill-processes-table-wrapper {
+    max-height: 300px;
+    overflow-y: auto;
+    margin-bottom: 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.kill-processes-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+}
+
+.kill-processes-table-header {
+    border-bottom: 1px solid var(--border);
+    color: #9ca3af;
+    text-align: left;
+}
+
+.kill-processes-th {
+    padding: 0.5rem 0.75rem;
+    font-weight: 600;
+}
+
+.kill-processes-row {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.kill-processes-pid {
+    padding: 0.5rem 0.75rem;
+    font-family: monospace;
+    color: #f87171;
+    white-space: nowrap;
+}
+
+.kill-processes-command {
+    padding: 0.5rem 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.kill-processes-args {
+    padding: 0.5rem 0.75rem;
+    font-family: monospace;
+    font-size: 0.78rem;
+    color: #9ca3af;
+    word-break: break-all;
+}
+
+.kill-processes-actions {
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+}
+
+/* ── Update check banner (extracted component) ── */
+
+.update-check-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem;
+    background: rgba(100, 116, 139, 0.08);
+    border: 1px solid rgba(100, 116, 139, 0.15);
+    border-radius: 6px;
+    margin-bottom: 0.75rem;
+    font-size: 0.85rem;
+    flex-wrap: wrap;
+}
+
+.update-check-banner--available {
+    background: rgba(234, 179, 8, 0.1);
+    border-color: rgba(234, 179, 8, 0.3);
+}
+
+.update-check-banner-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.update-check-banner-text--muted {
+    color: #9ca3af;
+}
+
+.update-check-banner-text--error {
+    color: #ef4444;
+}
+
+.update-check-banner-text--warn {
+    color: #eab308;
+}
+
+.update-check-banner-text--ok {
+    color: #22c55e;
+}
+
+.update-check-banner-btn {
+    font-size: 0.8rem;
+    padding: 2px 10px;
+    margin-left: auto;
+    flex-shrink: 0;
+}
+
+/* ── Save template dialog description ── */
+
+.template-save-dialog-description {
+    font-size: 0.85rem;
+    color: #9ca3af;
+    margin-bottom: 1rem;
+}
+
+.template-save-dialog-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}
+
+/* ── Pipeline tab: saved indicator ── */
+
+.pipeline-saved-indicator {
+    color: #22c55e;
+    font-size: 0.85rem;
+}
+
+/* ── Pipeline editor: title and code ── */
+
+.pipeline-editor-title {
+    margin: 0;
+}
+
+.pipeline-editor-code {
+    font-size: 0.8rem;
+}
+
+/* ── Pipeline: stop timeout input ── */
+
+.pipeline-stop-timeout-input {
+    max-width: 8rem;
+}

@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT COUNT(*) > 0 FROM users WHERE username = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "COUNT(*) > 0",
+        "ordinal": 0,
+        "type_info": "Integer"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "82f05453957a392885eeb5e1585e67df881fdefd7aca75a98e82e873e318e42f"
+}

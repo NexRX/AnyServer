@@ -1,0 +1,80 @@
+{
+  "db_name": "SQLite",
+  "query": "\n            SELECT id, owner_id, config, created_at, updated_at,\n                   parameter_values, installed, installed_at,\n                   updated_via_pipeline_at, installed_version, source_template_id\n            FROM servers WHERE id = ?\n            ",
+  "describe": {
+    "columns": [
+      {
+        "name": "id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "owner_id",
+        "ordinal": 1,
+        "type_info": "Text"
+      },
+      {
+        "name": "config",
+        "ordinal": 2,
+        "type_info": "Text"
+      },
+      {
+        "name": "created_at",
+        "ordinal": 3,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_at",
+        "ordinal": 4,
+        "type_info": "Text"
+      },
+      {
+        "name": "parameter_values",
+        "ordinal": 5,
+        "type_info": "Text"
+      },
+      {
+        "name": "installed",
+        "ordinal": 6,
+        "type_info": "Integer"
+      },
+      {
+        "name": "installed_at",
+        "ordinal": 7,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_via_pipeline_at",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "installed_version",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "source_template_id",
+        "ordinal": 10,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "7a99eeeb1c1157ea094d0e5a56dc252561d89b4b93da9a4fbaf5ea0ea1851674"
+}

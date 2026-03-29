@@ -1,0 +1,92 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT server_id, enabled, landlock_enabled, no_new_privs, fd_cleanup,\n                      non_dumpable, namespace_isolation, pids_max, extra_read_paths,\n                      extra_rw_paths, network_isolation, seccomp_mode, updated_at\n               FROM sandbox_profiles WHERE server_id = ?",
+  "describe": {
+    "columns": [
+      {
+        "name": "server_id",
+        "ordinal": 0,
+        "type_info": "Text"
+      },
+      {
+        "name": "enabled",
+        "ordinal": 1,
+        "type_info": "Integer"
+      },
+      {
+        "name": "landlock_enabled",
+        "ordinal": 2,
+        "type_info": "Integer"
+      },
+      {
+        "name": "no_new_privs",
+        "ordinal": 3,
+        "type_info": "Integer"
+      },
+      {
+        "name": "fd_cleanup",
+        "ordinal": 4,
+        "type_info": "Integer"
+      },
+      {
+        "name": "non_dumpable",
+        "ordinal": 5,
+        "type_info": "Integer"
+      },
+      {
+        "name": "namespace_isolation",
+        "ordinal": 6,
+        "type_info": "Integer"
+      },
+      {
+        "name": "pids_max",
+        "ordinal": 7,
+        "type_info": "Integer"
+      },
+      {
+        "name": "extra_read_paths",
+        "ordinal": 8,
+        "type_info": "Text"
+      },
+      {
+        "name": "extra_rw_paths",
+        "ordinal": 9,
+        "type_info": "Text"
+      },
+      {
+        "name": "network_isolation",
+        "ordinal": 10,
+        "type_info": "Integer"
+      },
+      {
+        "name": "seccomp_mode",
+        "ordinal": 11,
+        "type_info": "Text"
+      },
+      {
+        "name": "updated_at",
+        "ordinal": 12,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false,
+      false
+    ]
+  },
+  "hash": "91afaff220e7fe0e27332eaf0dfdc01bdef38f866615208ed2ea446abe6e60de"
+}

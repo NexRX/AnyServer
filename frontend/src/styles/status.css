@@ -1,0 +1,286 @@
+/* ─── Status Badges ─── */
+
+.status-badge {
+    display: inline-block;
+    padding: 0.18rem 0.6rem;
+    border-radius: 10px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    transition:
+        background 0.3s ease,
+        color 0.3s ease;
+}
+
+.status-running {
+    background: var(--success-bg);
+    color: var(--success);
+}
+
+.status-starting {
+    background: var(--warning-bg);
+    color: var(--warning);
+}
+
+.status-stopping {
+    background: var(--orange-bg);
+    color: var(--orange);
+}
+
+.status-crashed {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+
+.status-stopped {
+    background: rgba(107, 114, 128, 0.15);
+    color: var(--text-muted);
+}
+
+.status-installing,
+.status-updating {
+    background: rgba(139, 92, 246, 0.15);
+    color: #a78bfa;
+}
+
+.status-uninstalling {
+    background: var(--danger-bg);
+    color: var(--danger);
+}
+
+.pid {
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    color: var(--text-dim);
+}
+
+/* ─── Status Tooltip ─── */
+
+.status-tooltip-container {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+
+.status-tooltip-trigger {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    background: var(--bg-input);
+    color: var(--text-dim);
+    font-size: 0.65rem;
+    font-weight: 700;
+    font-family: var(--font);
+    cursor: pointer;
+    transition:
+        background var(--transition),
+        color var(--transition),
+        border-color var(--transition),
+        box-shadow var(--transition);
+    flex-shrink: 0;
+    line-height: 1;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.status-tooltip-trigger:hover {
+    background: var(--bg-hover);
+    border-color: var(--text-dim);
+    color: var(--text-muted);
+}
+
+.status-tooltip-trigger:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.status-tooltip-trigger[aria-expanded="true"] {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+    color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+}
+
+.status-tooltip-popover {
+    position: absolute;
+    top: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 340px;
+    max-height: 420px;
+    overflow-y: auto;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow:
+        0 8px 30px rgba(0, 0, 0, 0.4),
+        0 0 1px rgba(0, 0, 0, 0.3);
+    z-index: 500;
+    padding: 0;
+    animation: statusTooltipIn 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes statusTooltipIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(-4px) scale(0.97);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0) scale(1);
+    }
+}
+
+.status-tooltip-arrow {
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    transform: translateX(-50%) rotate(45deg);
+    width: 10px;
+    height: 10px;
+    background: var(--bg-elevated);
+    border-left: 1px solid var(--border);
+    border-top: 1px solid var(--border);
+    z-index: 1;
+}
+
+/* Current status highlight */
+
+.status-tooltip-current {
+    padding: 0.85rem 1rem;
+    background: var(--primary-bg);
+    border-bottom: 1px solid var(--border);
+    border-radius: var(--radius) var(--radius) 0 0;
+}
+
+.status-tooltip-current-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.4rem;
+}
+
+.status-tooltip-current-icon {
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.status-tooltip-current-label {
+    font-weight: 700;
+    font-size: 0.9rem;
+    color: var(--text);
+}
+
+.status-tooltip-current-tag {
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    background: var(--primary);
+    color: white;
+    line-height: 1.4;
+}
+
+.status-tooltip-current-desc {
+    font-size: 0.8rem;
+    line-height: 1.55;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.status-tooltip-divider {
+    height: 1px;
+    background: var(--border);
+}
+
+/* All-statuses list */
+
+.status-tooltip-list-header {
+    padding: 0.6rem 1rem 0.35rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+}
+
+.status-tooltip-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 0.4rem;
+}
+
+.status-tooltip-list-item {
+    display: grid;
+    grid-template-columns: 1.4em auto;
+    grid-template-rows: auto auto;
+    column-gap: 0.5rem;
+    row-gap: 0.1rem;
+    padding: 0.4rem 1rem;
+    transition: background var(--transition);
+    border-left: 2px solid transparent;
+}
+
+.status-tooltip-list-item:hover {
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.status-tooltip-list-item--active {
+    background: rgba(99, 102, 241, 0.06);
+    border-left-color: var(--primary);
+}
+
+.status-tooltip-list-icon {
+    grid-row: 1 / -1;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    text-align: center;
+}
+
+.status-tooltip-list-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.4;
+}
+
+.status-tooltip-list-desc {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    line-height: 1.45;
+    grid-column: 2;
+}
+
+/* Responsive: on small screens, anchor popover to the left edge instead of center */
+@media (max-width: 480px) {
+    .status-tooltip-popover {
+        left: 0;
+        transform: translateX(-10px);
+        width: calc(100vw - 2rem);
+        max-width: 340px;
+    }
+
+    @keyframes statusTooltipIn {
+        from {
+            opacity: 0;
+            transform: translateX(-10px) translateY(-4px) scale(0.97);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(-10px) translateY(0) scale(1);
+        }
+    }
+
+    .status-tooltip-arrow {
+        left: 20px;
+        transform: rotate(45deg);
+    }
+}
+

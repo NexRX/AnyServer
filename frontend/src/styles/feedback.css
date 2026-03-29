@@ -1,0 +1,484 @@
+/* ─── Loading / Loader ─── */
+
+.loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 3rem 1.5rem;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    gap: 1rem;
+}
+
+.loading-compact {
+    padding: 1.5rem;
+    gap: 0.75rem;
+}
+
+.loading-compact .loader-spinner {
+    width: 28px;
+    height: 28px;
+}
+
+.loading-compact .loader-message {
+    font-size: 0.82rem;
+}
+
+.loader-spinner-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+}
+
+.loading-compact .loader-spinner-row {
+    gap: 0.75rem;
+}
+
+.loader-spinner {
+    width: 36px;
+    height: 36px;
+}
+
+.loader-svg {
+    width: 100%;
+    height: 100%;
+    animation: loader-rotate 1.4s linear infinite;
+}
+
+.loader-track {
+    stroke: var(--border);
+}
+
+.loader-arc {
+    stroke: var(--primary);
+    stroke-dasharray: 90, 150;
+    stroke-dashoffset: 0;
+    animation: loader-dash 1.4s ease-in-out infinite;
+}
+
+@keyframes loader-rotate {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes loader-dash {
+    0% {
+        stroke-dasharray: 1, 150;
+        stroke-dashoffset: 0;
+    }
+    50% {
+        stroke-dasharray: 90, 150;
+        stroke-dashoffset: -35;
+    }
+    100% {
+        stroke-dasharray: 90, 150;
+        stroke-dashoffset: -124;
+    }
+}
+
+.loader-message {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+/* ─── Skeleton Placeholders ─── */
+
+.skeleton-container {
+    animation: fadeIn 0.3s ease;
+}
+
+.skeleton-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 1rem;
+}
+
+.skeleton-lines {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.skeleton-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    animation: skeletonFadeIn 0.4s ease both;
+}
+
+.skeleton-lines .skeleton-item {
+    padding: 0.85rem 1rem;
+    flex-direction: row;
+    gap: 1rem;
+    align-items: center;
+}
+
+@keyframes skeletonFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.skeleton-bar {
+    height: 12px;
+    border-radius: 4px;
+    background: linear-gradient(
+        90deg,
+        var(--bg-input) 25%,
+        var(--bg-hover) 50%,
+        var(--bg-input) 75%
+    );
+    background-size: 200% 100%;
+    animation: skeletonShimmer 1.5s ease-in-out infinite;
+}
+
+.skeleton-bar-short {
+    width: 35%;
+    height: 14px;
+}
+.skeleton-bar-medium {
+    width: 60%;
+}
+.skeleton-bar-long {
+    width: 85%;
+}
+.skeleton-bar-full {
+    width: 100%;
+    flex: 1;
+}
+
+@keyframes skeletonShimmer {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+.error-msg {
+    background: var(--danger-bg);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-left: 3px solid var(--danger);
+    border-radius: var(--radius-sm);
+    padding: 0.7rem 1rem;
+    color: var(--danger);
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    animation: toastSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.success-msg {
+    background: var(--success-bg);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-left: 3px solid var(--success);
+    border-radius: var(--radius-sm);
+    padding: 0.7rem 1rem;
+    color: var(--success);
+    margin-bottom: 1rem;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    animation: toastSlideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes toastSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px) scaleY(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scaleY(1);
+    }
+}
+
+.dismiss-btn {
+    background: none;
+    border: none;
+    color: inherit;
+    cursor: pointer;
+    padding: 0.15rem 0.4rem;
+    border-radius: 3px;
+    font-size: 0.85rem;
+    line-height: 1;
+    opacity: 0.6;
+    transition:
+        opacity var(--transition),
+        background var(--transition);
+    flex-shrink: 0;
+}
+
+.dismiss-btn:hover {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+/* ─── Server Detail Toast: inline timer bar + floating toast ─── */
+
+.server-toast-inline {
+    position: relative;
+    overflow: hidden;
+}
+
+.server-toast-inline:hover .toast-timer-bar {
+    animation-play-state: paused;
+}
+
+.toast-timer-bar {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+    animation: toastTimerShrink linear forwards;
+}
+
+.toast-timer-bar--error {
+    background: var(--danger, #ef4444);
+}
+
+.toast-timer-bar--success {
+    background: var(--success, #22c55e);
+}
+
+@keyframes toastTimerShrink {
+    from {
+        width: 100%;
+    }
+    to {
+        width: 0%;
+    }
+}
+
+/* Floating toast — fixed to bottom-right when inline is off-screen */
+
+.error-toast-floating {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: 1000;
+    max-width: 480px;
+    width: calc(100% - 3rem);
+    background: var(--bg-card, #1a1d27);
+    border-radius: var(--radius);
+    overflow: hidden;
+    animation: floatingToastSlideIn 0.3s ease-out;
+}
+
+.error-toast-floating--error {
+    border: 1px solid var(--danger, #ef4444);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(239, 68, 68, 0.2);
+}
+
+.error-toast-floating--success {
+    border: 1px solid var(--success, #22c55e);
+    box-shadow:
+        0 8px 32px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(34, 197, 94, 0.2);
+}
+
+.error-toast-floating:hover .toast-timer-bar {
+    animation-play-state: paused;
+}
+
+.error-toast-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem 0.5rem;
+    font-size: 0.9rem;
+}
+
+.error-toast-floating--error .error-toast-content {
+    color: var(--danger, #ef4444);
+}
+
+.error-toast-floating--success .error-toast-content {
+    color: var(--success, #22c55e);
+}
+
+.error-toast-icon {
+    flex-shrink: 0;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+.error-toast-text {
+    flex: 1;
+    line-height: 1.5;
+    word-break: break-word;
+}
+
+.error-toast-dismiss {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 0.25rem;
+    font-size: 1rem;
+    line-height: 1;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+    flex-shrink: 0;
+}
+
+.error-toast-dismiss:hover {
+    opacity: 1;
+}
+
+.error-toast-scroll-btn {
+    display: block;
+    width: 100%;
+    background: none;
+    border: none;
+    border-top: 1px solid rgba(148, 163, 184, 0.1);
+    padding: 0.45rem 1.25rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    text-align: left;
+    transition:
+        background 0.15s,
+        color 0.15s;
+}
+
+.error-toast-scroll-btn:hover {
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--text);
+}
+
+@keyframes floatingToastSlideIn {
+    from {
+        transform: translateY(1rem);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 768px) {
+    .error-toast-floating {
+        bottom: 1rem;
+        right: 1rem;
+        left: 1rem;
+        width: auto;
+        max-width: none;
+    }
+}
+
+.empty-state {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-muted);
+    animation: emptyStateIn 0.4s ease;
+}
+
+.empty-state::before {
+    content: "📭";
+    display: block;
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.7;
+    filter: grayscale(0.3);
+}
+
+.empty-state h2 {
+    margin-bottom: 0.5rem;
+    color: var(--text);
+    font-size: 1.3rem;
+}
+
+.empty-state p {
+    margin-bottom: 1.5rem;
+    max-width: 420px;
+    margin-left: auto;
+    margin-right: auto;
+    line-height: 1.6;
+}
+
+@keyframes emptyStateIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ─── Animations ─── */
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-8px);
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        max-height: 4rem;
+    }
+}
+
+.animate-slide-in {
+    animation: slideIn 0.25s ease-out;
+}
+
+.dashboard,
+.server-detail,
+.create-server,
+.admin-panel,
+.auth-page,
+.templates-page {
+    animation: pageIn 0.25s ease;
+}
+
+@keyframes pageIn {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+

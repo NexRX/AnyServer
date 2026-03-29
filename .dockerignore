@@ -1,0 +1,48 @@
+# Build artifacts
+backend/target/
+frontend/node_modules/
+frontend/dist/
+
+# Runtime data (should never be baked into the image)
+backend/data/
+data/
+
+# Version control
+.git/
+.gitignore
+
+# IDE / editor files
+.vscode/
+.idea/
+.zed/
+*.swp
+*.swo
+
+# Test artifacts
+frontend/test-results/
+frontend/playwright-report/
+frontend/playwright/.cache/
+frontend/blob-report/
+frontend/.playwright/
+frontend/e2e/
+
+# Logs
+*.log
+frontend/full-test-output.log
+frontend/full-test-run.log
+frontend/test-output.log
+
+# Documentation (not needed in image)
+docs/
+
+# Environment / secrets
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Docker files themselves (avoid recursive context)
+Dockerfile
+docker-compose.yml

@@ -1,0 +1,98 @@
+[package]
+name = "anyserver"
+version = "0.1.0"
+edition = "2021"
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/NexRX/AnyServer"
+
+[features]
+bundle-frontend = ["rust-embed"]
+migrate-sled = ["sled"]
+
+[dependencies]
+# Web framework
+axum = { version = "0.7", features = ["ws", "multipart"] }
+axum-extra = { version = "0.9", features = ["typed-header", "cookie"] }
+tower = { version = "0.4", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors", "fs", "trace"] }
+
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["io"] }
+futures = "0.3"
+
+# Serialization & type safety
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ts-rs = { version = "9", features = ["serde-compat", "uuid-impl", "chrono-impl"] }
+
+# IDs and time
+uuid = { version = "1", features = ["v4", "serde"] }
+chrono = { version = "0.4", features = ["serde"] }
+time = "0.3"
+
+# Persistence
+sqlx = { version = "0.8", features = ["runtime-tokio", "sqlite", "uuid", "chrono", "json", "migrate"] }
+sled = { version = "0.34", optional = true }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Concurrency
+dashmap = "6"
+parking_lot = "0.12"
+
+# SFTP server
+russh = "0.46"
+russh-sftp = "2.0"
+russh-keys = "0.46"
+async-trait = "0.1"
+
+# Authentication & authorization
+argon2 = "0.5"
+jsonwebtoken = "9"
+
+# HTTP client (for URL import proxy)
+reqwest = { version = "0.12", features = ["json", "rustls-tls", "stream"], default-features = false }
+
+# Archive extraction
+zip = "2"
+tar = "0.4"
+flate2 = "1"
+xz2 = "0.1"
+
+# Regex (for edit_file regex-replace operations)
+regex = "1"
+
+# Embedded frontend assets (optional, for production builds)
+rust-embed = { version = "8", optional = true }
+
+# System metrics
+sysinfo = "0.31"
+
+# Email (SMTP)
+lettre = { version = "0.11", default-features = false, features = ["tokio1-rustls-tls", "tokio1", "builder", "smtp-transport"] }
+
+# URL parsing (for SSRF protection in import proxy)
+url = "2"
+
+# Glob pattern matching (for Java runtime directory scanning)
+glob = "0.3"
+
+# Utilities
+anyhow = "1"
+thiserror = "1"
+bytes = "1"
+base64 = "0.22"
+sha2 = "0.10"
+aes-gcm = "0.10"
+hkdf = "0.12"
+rand = "0.8"
+walkdir = "2"
+libc = "0.2"
+tempfile = "3"
+
+[dev-dependencies]
+http-body-util = "0.1"
+rand = "0.8"

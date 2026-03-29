@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO sandbox_profiles\n               (server_id, enabled, landlock_enabled, no_new_privs, fd_cleanup,\n                non_dumpable, namespace_isolation, pids_max, extra_read_paths,\n                extra_rw_paths, network_isolation, seccomp_mode, updated_at)\n               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\n               ON CONFLICT(server_id) DO UPDATE SET\n                enabled = excluded.enabled,\n                landlock_enabled = excluded.landlock_enabled,\n                no_new_privs = excluded.no_new_privs,\n                fd_cleanup = excluded.fd_cleanup,\n                non_dumpable = excluded.non_dumpable,\n                namespace_isolation = excluded.namespace_isolation,\n                pids_max = excluded.pids_max,\n                extra_read_paths = excluded.extra_read_paths,\n                extra_rw_paths = excluded.extra_rw_paths,\n                network_isolation = excluded.network_isolation,\n                seccomp_mode = excluded.seccomp_mode,\n                updated_at = excluded.updated_at",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 13
+    },
+    "nullable": []
+  },
+  "hash": "cc5686cfc24b75d29cad3ec7f952f39e4ca36e4d36e2ee962bdece34ab60674e"
+}

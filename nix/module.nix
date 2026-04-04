@@ -7,10 +7,12 @@
 
 let
   cfg = config.services.anyserver;
+  nginxCfg = cfg.nginx;
   inherit (lib)
     mkEnableOption
     mkOption
     mkIf
+    mkDefault
     mkPackageOption
     types
     optionalAttrs
@@ -79,6 +81,10 @@ in
       description = ''
         Allowed CORS origin(s), comma-separated. Defaults to same-origin
         in production builds if unset.
+
+        When {option}`services.anyserver.nginx.enable` is set, this
+        defaults automatically to the configured domain with the
+        appropriate scheme.
       '';
       example = "https://your-domain.example.com";
     };
@@ -90,6 +96,9 @@ in
         Trusted reverse-proxy IPs/CIDRs (e.g. "127.0.0.1,10.0.0.0/8").
         Required when running behind a reverse proxy so that
         X-Forwarded-For headers are respected.
+
+        When {option}`services.anyserver.nginx.enable` is set, this
+        defaults automatically to `"127.0.0.1,::1"`.
       '';
       example = "127.0.0.1,10.0.0.0/8,172.16.0.0/12";
     };
@@ -106,6 +115,9 @@ in
         - `"true"` — HTTPS only
         - `"false"` — plain HTTP allowed
         - `"auto"` — determined automatically based on build type
+
+        When {option}`services.anyserver.nginx.forceSSL` is set, this
+        defaults automatically to `"true"`.
       '';
     };
 
@@ -151,11 +163,80 @@ in
     openFirewall = mkOption {
       type = types.bool;
       default = false;
-      description = "Whether to open the HTTP and SFTP ports in the firewall.";
+      description = ''
+        Whether to open ports in the firewall.
+
+        When the nginx reverse proxy is **disabled**, this opens
+        {option}`httpPort` and {option}`sftpPort`.
+
+        When the nginx reverse proxy is **enabled**, this opens ports
+        80, 443, and {option}`sftpPort` instead (the raw HTTP port is
+        only accessed via localhost).
+      '';
+    };
+
+    # ── Nginx reverse proxy ───────────────────────────────────
+    nginx = {
+      enable = mkEnableOption "an nginx reverse proxy in front of AnyServer";
+
+      domain = mkOption {
+        type = types.str;
+        description = "Domain name for the nginx virtual host.";
+        example = "servers.example.com";
+      };
+
+      forceSSL = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Whether to redirect all HTTP traffic to HTTPS.
+          You almost always want this together with
+          {option}`services.anyserver.nginx.enableACME`.
+        '';
+      };
+
+      enableACME = mkOption {
+        type = types.bool;
+        default = false;
+        description = ''
+          Whether to enable ACME (Let's Encrypt) certificate provisioning
+          for the virtual host.
+        '';
+      };
+
+      extraVirtualHostConfig = mkOption {
+        type = types.attrsOf types.anything;
+        default = { };
+        description = ''
+          Extra attributes merged into the
+          `services.nginx.virtualHosts.<domain>` definition.
+          Use this for anything not covered by the options above,
+          such as `sslCertificate`, `basicAuth`, `listen`, etc.
+        '';
+        example = lib.literalExpression ''
+          {
+            basicAuthFile = "/run/secrets/anyserver-htpasswd";
+            extraConfig = "client_max_body_size 512m;";
+          }
+        '';
+      };
     };
   };
 
   config = mkIf cfg.enable {
+
+    # ── Auto-wire settings when nginx is enabled ──────────────
+    services.anyserver = mkIf nginxCfg.enable {
+      trustedProxies = mkDefault "127.0.0.1,::1";
+      cookieSecure = mkIf nginxCfg.forceSSL (mkDefault "true");
+      corsOrigin =
+        let
+          scheme = if nginxCfg.forceSSL then "https" else "http";
+        in
+        mkDefault "${scheme}://${nginxCfg.domain}";
+    };
+
+    # ── Users & groups ────────────────────────────────────────
     users.users = optionalAttrs (cfg.user == "anyserver") {
       anyserver = {
         isSystemUser = true;
@@ -169,16 +250,56 @@ in
       anyserver = { };
     };
 
+    # ── Firewall ──────────────────────────────────────────────
     networking.firewall = mkIf cfg.openFirewall {
-      allowedTCPPorts = [
-        cfg.httpPort
-        cfg.sftpPort
-      ];
+      allowedTCPPorts =
+        if nginxCfg.enable then
+          # Behind nginx: expose HTTP(S) + SFTP, not the raw backend port
+          [
+            80
+            443
+            cfg.sftpPort
+          ]
+        else
+          [
+            cfg.httpPort
+            cfg.sftpPort
+          ];
     };
 
+    # ── Nginx ─────────────────────────────────────────────────
+    services.nginx = mkIf nginxCfg.enable {
+      enable = true;
+      recommendedProxySettings = true;
+      recommendedTlsSettings = true;
+      recommendedOptimisation = true;
+      recommendedGzipSettings = true;
+
+      virtualHosts.${nginxCfg.domain} = {
+        forceSSL = nginxCfg.forceSSL;
+        enableACME = nginxCfg.enableACME;
+
+        locations."/" = {
+          proxyPass = "http://127.0.0.1:${toString cfg.httpPort}";
+          proxyWebsockets = true;
+          extraConfig = ''
+            # AnyServer streams the live console over long-lived
+            # WebSocket connections — disable proxy buffering and
+            # use a generous read timeout so idle connections are
+            # not dropped.
+            proxy_buffering off;
+            proxy_read_timeout 86400s;
+            proxy_send_timeout 86400s;
+          '';
+        };
+      }
+      // nginxCfg.extraVirtualHostConfig;
+    };
+
+    # ── Systemd service ───────────────────────────────────────
     systemd.services.anyserver = {
       description = "AnyServer — self-hosted server management panel";
-      after = [ "network.target" ];
+      after = [ "network.target" ] ++ lib.optional nginxCfg.enable "nginx.service";
       wantedBy = [ "multi-user.target" ];
 
       environment = {

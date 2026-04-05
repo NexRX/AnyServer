@@ -4,6 +4,42 @@
     animation: fadeIn 0.2s ease;
 }
 
+/* Override the default underline-style tabs with wrapping pill-style tabs
+   so that all 11 admin tabs remain visible instead of being silently
+   clipped behind hidden scrollbars. */
+.admin-panel .tabs {
+    flex-wrap: wrap;
+    gap: 0.375rem;
+    border-bottom: none;
+    margin-bottom: 1.5rem;
+    overflow-x: visible;
+}
+
+.admin-panel .tab {
+    position: relative;
+    bottom: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.85rem;
+    font-size: 0.82rem;
+    white-space: nowrap;
+    transition:
+        color var(--transition),
+        background var(--transition),
+        border-color var(--transition);
+}
+
+.admin-panel .tab:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: var(--text-muted);
+}
+
+.admin-panel .tab.active {
+    background: var(--primary-bg);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
 .admin-section-header {
     display: flex;
     align-items: center;
@@ -222,6 +258,16 @@
         flex-shrink: 0;
     }
 
+    /* On mobile the pill tabs can still wrap; reduce size a touch further */
+    .admin-panel .tabs {
+        gap: 0.3rem;
+    }
+
+    .admin-panel .tab {
+        padding: 0.4rem 0.7rem;
+        font-size: 0.78rem;
+    }
+
     .admin-user-header,
     .admin-user-row {
         grid-template-columns: 2fr 1fr 1.5fr;
@@ -372,4 +418,3 @@
 .param-ref-hint-tip {
     opacity: 0.8;
 }
-

@@ -13,9 +13,18 @@ use crate::auth::AuthUser;
 use crate::error::AppError;
 use crate::types::{
     CpuMetrics, DiskMetrics, DotnetRuntimesResponse, JavaRuntimesResponse, MemoryMetrics,
-    NetworkMetrics, SystemHealth,
+    NetworkMetrics, SystemHealth, VersionInfo,
 };
 use crate::utils::{dotnet_detect, java_detect};
+
+/// GET /api/system/version
+///
+/// Returns the backend version (from Cargo.toml at compile time).
+pub async fn get_version(_user: AuthUser) -> Json<VersionInfo> {
+    Json(VersionInfo {
+        backend_version: env!("CARGO_PKG_VERSION").to_string(),
+    })
+}
 
 /// GET /api/system/health
 pub async fn get_health(

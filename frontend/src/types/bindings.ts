@@ -137,6 +137,7 @@ export type { JavaRuntimesResponse } from "./generated/JavaRuntimesResponse";
 export type { MemoryMetrics } from "./generated/MemoryMetrics";
 export type { NetworkMetrics } from "./generated/NetworkMetrics";
 export type { SystemHealth } from "./generated/SystemHealth";
+export type { VersionInfo } from "./generated/VersionInfo";
 
 // ─── WebSocket ───
 export type { LogLine } from "./generated/LogLine";

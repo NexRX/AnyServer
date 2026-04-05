@@ -4,8 +4,13 @@ import type {
   DotnetRuntimesResponse,
   SteamCmdStatusResponse,
   ValidateAppResponse,
+  VersionInfo,
 } from "../types/bindings";
 import { request } from "./core";
+
+export function getVersion(): Promise<VersionInfo> {
+  return request<VersionInfo>("GET", "/system/version");
+}
 
 export function getSystemHealth(): Promise<SystemHealth> {
   return request<SystemHealth>("GET", "/system/health");

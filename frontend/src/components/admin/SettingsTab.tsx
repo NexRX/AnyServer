@@ -1,16 +1,26 @@
-import {
-  type Component,
-  createSignal,
-  Show,
-} from "solid-js";
-import { updateSettings } from "../../api/client";
+import { type Component, createSignal, onMount, Show } from "solid-js";
+import { updateSettings, getVersion } from "../../api/client";
 import { useAuth } from "../../context/auth";
+
+declare const __APP_VERSION__: string;
 
 const SettingsTab: Component = () => {
   const auth = useAuth();
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [success, setSuccess] = createSignal(false);
+  const [backendVersion, setBackendVersion] = createSignal<string | null>(null);
+  const frontendVersion =
+    typeof __APP_VERSION__ !== "undefined" ? __APP_VERSION__ : "unknown";
+
+  onMount(async () => {
+    try {
+      const info = await getVersion();
+      setBackendVersion(info.backend_version);
+    } catch {
+      setBackendVersion("unavailable");
+    }
+  });
   const [sandboxMode, setSandboxMode] = createSignal(
     auth.settings()?.run_command_sandbox || "auto",
   );
@@ -371,6 +381,35 @@ const SettingsTab: Component = () => {
               Namespace isolation:{" "}
               <strong style={{ color: "var(--text)" }}>
                 {auth.settings()?.run_command_use_namespaces ? "Yes" : "No"}
+              </strong>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="admin-setting-row">
+        <div class="admin-setting-info">
+          <h4>Version Info</h4>
+          <ul
+            style={{
+              "list-style": "none",
+              padding: "0",
+              "font-size": "0.9rem",
+              color: "var(--text-muted)",
+            }}
+          >
+            <li>
+              Frontend:{" "}
+              <strong style={{ color: "var(--text)" }}>
+                v{frontendVersion}
+              </strong>
+            </li>
+            <li>
+              Backend:{" "}
+              <strong style={{ color: "var(--text)" }}>
+                <Show when={backendVersion()} fallback="loading…">
+                  v{backendVersion()}
+                </Show>
               </strong>
             </li>
           </ul>

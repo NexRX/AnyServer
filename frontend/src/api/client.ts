@@ -93,6 +93,7 @@ export {
 } from "./templates";
 
 export {
+  getVersion,
   getSystemHealth,
   getJavaRuntimes,
   getJavaEnv,

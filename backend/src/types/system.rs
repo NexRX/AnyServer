@@ -2,6 +2,16 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
+// ─── Version Info ───
+
+/// Response from `GET /api/system/version`.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../frontend/src/types/generated/")]
+pub struct VersionInfo {
+    /// The backend version string (from Cargo.toml).
+    pub backend_version: String,
+}
+
 // ─── Java Runtime Detection ───
 
 /// A detected Java runtime installation on the host system.

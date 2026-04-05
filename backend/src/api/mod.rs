@@ -238,6 +238,7 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/templates/:id", delete(templates::delete_template));
 
     let system_routes = Router::new()
+        .route("/system/version", get(system::get_version))
         .route("/system/health", get(system::get_health))
         .route("/system/java-runtimes", get(system::get_java_runtimes))
         .route("/system/java-env", get(system::get_java_env))

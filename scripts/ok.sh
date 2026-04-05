@@ -85,38 +85,33 @@ run_check "On main/master branch" bash -c '
 section "Backend (Rust) Checks"
 cd "$BACKEND_DIR"
 
-if command -v cargo &>/dev/null; then
+run_check "Cargo check" cargo check --all-targets --all-features
 
-    run_check "Cargo check" cargo check --all-targets --all-features
+run_check "Cargo test" cargo test --all-features
 
-    run_check "Cargo test" cargo test --all-features
+run_check "Cargo clippy" cargo clippy --all-targets --all-features -- -D warnings
 
-    run_check "Cargo clippy" cargo clippy --all-targets --all-features -- -D warnings
+run_check "Cargo fmt check" cargo fmt --all -- --check
 
-    run_check "Cargo fmt check" cargo fmt --all -- --check
+run_check "Cargo audit (dependencies)" bash -c '
+    if command -v cargo-audit &>/dev/null; then
+        cargo audit
+    else
+        echo "cargo-audit not installed, installing..."
+        cargo install cargo-audit && cargo audit
+    fi
+'
 
-    run_check "Cargo audit (dependencies)" bash -c '
-        if command -v cargo-audit &>/dev/null; then
-            cargo audit
-        else
-            echo "cargo-audit not installed, installing..."
-            cargo install cargo-audit && cargo audit
-        fi
-    '
+run_check "No unused dependencies" bash -c '
+    if command -v cargo-udeps &>/dev/null; then
+        cargo +nightly udeps --all-targets
+    else
+        echo "cargo-udeps not installed, skipping"
+        exit 0
+    fi
+'
 
-    run_check "No unused dependencies" bash -c '
-        if command -v cargo-udeps &>/dev/null; then
-            cargo +nightly udeps --all-targets
-        else
-            echo "cargo-udeps not installed, skipping"
-            exit 0
-        fi
-    '
-
-    run_check "Cargo doc (no warnings)" bash -c 'RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features'
-else
-    skip_check "Backend checks" "cargo not found"
-fi
+run_check "Cargo doc (no warnings)" bash -c 'RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --all-features'
 
 # =============================================================================
 # Frontend Checks
@@ -124,64 +119,60 @@ fi
 section "Frontend Checks"
 cd "$FRONTEND_DIR"
 
-if [ -f "$FRONTEND_DIR/package.json" ]; then
 
-    # Detect package manager
-    if [ -f "pnpm-lock.yaml" ]; then
-        PKG_MGR="pnpm"
-    elif [ -f "yarn.lock" ]; then
-        PKG_MGR="yarn"
-    elif [ -f "bun.lockb" ]; then
-        PKG_MGR="bun"
-    else
-        PKG_MGR="npm"
-    fi
-
-    run_check "Frontend install dependencies" bash -c "cd '$FRONTEND_DIR' && $PKG_MGR install --frozen-lockfile 2>/dev/null || $PKG_MGR install"
-
-    if has_script "typecheck"; then
-        run_check "Frontend type check" $PKG_MGR run typecheck
-    elif has_script "type-check"; then
-        run_check "Frontend type check" $PKG_MGR run type-check
-    elif has_script "tsc"; then
-        run_check "Frontend type check" $PKG_MGR run tsc
-    elif command -v tsc &>/dev/null; then
-        run_check "Frontend type check (tsc)" tsc --noEmit
-    else
-        skip_check "Frontend type check" "no typecheck script found"
-    fi
-
-    if has_script "lint"; then
-        run_check "Frontend lint" $PKG_MGR run lint
-    elif command -v eslint &>/dev/null; then
-        run_check "Frontend lint (eslint)" eslint .
-    else
-        skip_check "Frontend lint" "no lint script found"
-    fi
-
-    if has_script "format:check"; then
-        run_check "Frontend format check" $PKG_MGR run format:check
-    elif has_script "fmt:check"; then
-        run_check "Frontend format check" $PKG_MGR run fmt:check
-    elif command -v prettier &>/dev/null; then
-        run_check "Frontend format check (prettier)" prettier --check .
-    else
-        skip_check "Frontend format check" "no format check script found"
-    fi
-
-    if has_script "test"; then
-        run_check "Frontend unit tests" $PKG_MGR run test
-    else
-        skip_check "Frontend unit tests" "no test script found"
-    fi
-
-    if has_script "build"; then
-        run_check "Frontend build" $PKG_MGR run build
-    else
-        skip_check "Frontend build" "no build script found"
-    fi
+# Detect package manager
+if [ -f "pnpm-lock.yaml" ]; then
+    PKG_MGR="pnpm"
+elif [ -f "yarn.lock" ]; then
+    PKG_MGR="yarn"
+elif [ -f "bun.lockb" ]; then
+    PKG_MGR="bun"
 else
-    skip_check "Frontend checks" "no frontend directory found"
+    PKG_MGR="npm"
+fi
+
+run_check "Frontend install dependencies" bash -c "cd '$FRONTEND_DIR' && $PKG_MGR install --frozen-lockfile 2>/dev/null || $PKG_MGR install"
+
+if has_script "typecheck"; then
+    run_check "Frontend type check" $PKG_MGR run typecheck
+elif has_script "type-check"; then
+    run_check "Frontend type check" $PKG_MGR run type-check
+elif has_script "tsc"; then
+    run_check "Frontend type check" $PKG_MGR run tsc
+elif command -v tsc &>/dev/null; then
+    run_check "Frontend type check (tsc)" tsc --noEmit
+else
+    skip_check "Frontend type check" "no typecheck script found"
+fi
+
+if has_script "lint"; then
+    run_check "Frontend lint" $PKG_MGR run lint
+elif command -v eslint &>/dev/null; then
+    run_check "Frontend lint (eslint)" eslint .
+else
+    skip_check "Frontend lint" "no lint script found"
+fi
+
+if has_script "format:check"; then
+    run_check "Frontend format check" $PKG_MGR run format:check
+elif has_script "fmt:check"; then
+    run_check "Frontend format check" $PKG_MGR run fmt:check
+elif command -v prettier &>/dev/null; then
+    run_check "Frontend format check (prettier)" prettier --check .
+else
+    skip_check "Frontend format check" "no format check script found"
+fi
+
+if has_script "test"; then
+    run_check "Frontend unit tests" $PKG_MGR run test
+else
+    skip_check "Frontend unit tests" "no test script found"
+fi
+
+if has_script "build"; then
+    run_check "Frontend build" $PKG_MGR run build
+else
+    skip_check "Frontend build" "no build script found"
 fi
 
 # =============================================================================
@@ -211,20 +202,16 @@ fi
 section "Nix Flake Checks"
 cd "$REPO_DIR"
 
-if [ -f "flake.nix" ]; then
-    if command -v nix &>/dev/null; then
-        run_check "Nix flake check" nix flake check
+if command -v nix &>/dev/null; then
+    run_check "Nix flake check" nix flake check
 
-        run_check "Nix flake build" nix build
+    run_check "Nix flake build" nix build
 
-        run_check "Nix flake lock is up to date" bash -c '
-            nix flake lock --no-update-lock-file 2>&1
-        '
-    else
-        skip_check "Nix flake checks" "nix not found"
-    fi
+    run_check "Nix flake lock is up to date" bash -c '
+        nix flake lock --no-update-lock-file 2>&1
+    '
 else
-    skip_check "Nix flake checks" "no flake.nix found"
+    skip_check "Nix flake checks" "nix not found"
 fi
 
 # =============================================================================
@@ -233,20 +220,16 @@ fi
 section "Docker Checks"
 cd "$REPO_DIR"
 
-if [ -f "Dockerfile" ] || [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ] || [ -f "compose.yml" ] || [ -f "compose.yaml" ]; then
-    if command -v docker &>/dev/null; then
-        if [ -f "Dockerfile" ]; then
-            run_check "Docker build" docker build -t release-check .
-        fi
-        if [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ] || [ -f "compose.yml" ] || [ -f "compose.yaml" ]; then
-            run_check "Docker Compose config validation" docker compose config --quiet
-        fi
-    else
-        skip_check "Docker checks" "docker not found"
-    fi
-else
-    skip_check "Docker checks" "no Dockerfile or compose file found"
-fi
+if command -v docker &>/dev/null; then
+     if [ -f "Dockerfile" ]; then
+         run_check "Docker build" docker build -t release-check .
+     fi
+     if [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ] || [ -f "compose.yml" ] || [ -f "compose.yaml" ]; then
+         run_check "Docker Compose config validation" docker compose config --quiet
+     fi
+ else
+     skip_check "Docker checks" "docker not found"
+ fi
 
 # =============================================================================
 # Miscellaneous Checks

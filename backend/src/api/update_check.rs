@@ -107,6 +107,22 @@ pub async fn check_update(
         Ok(template_default_value)
     };
 
+    // Fetch CurseForge API key if needed for the CurseForge update check provider
+    let cf_api_key = if matches!(
+        update_check.provider,
+        crate::types::UpdateCheckProvider::CurseForge { .. }
+    ) {
+        state
+            .db
+            .get_curseforge_settings()
+            .await
+            .ok()
+            .flatten()
+            .and_then(|s| s.api_key)
+    } else {
+        None
+    };
+
     let result = perform_check(
         &state.http_client,
         server_id,
@@ -114,6 +130,7 @@ pub async fn check_update(
         installed_version,
         &vars,
         template_lookup,
+        cf_api_key.as_deref(),
     )
     .await;
 

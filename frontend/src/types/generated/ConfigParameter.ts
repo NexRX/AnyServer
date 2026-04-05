@@ -18,4 +18,9 @@ options_from: OptionsFrom | null,
  * GitHub repository (owner/repo format) for `github_release_tag` parameter type.
  * Required when `param_type` is `GithubReleaseTag`.
  */
-github_repo: string | null, };
+github_repo: string | null, 
+/**
+ * CurseForge project (mod) ID for `curseforge_file_version` parameter type.
+ * Required when `param_type` is `CurseForgeFileVersion`.
+ */
+curseforge_project_id: number | null, };

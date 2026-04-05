@@ -1670,6 +1670,246 @@ pub async fn execute_download_github_release_asset(
     Ok(())
 }
 
+/// Execute a CurseForge server pack download step.
+///
+/// This function:
+/// 1. Validates that `file_param` references a `CurseForgeFileVersion` parameter
+/// 2. Extracts the `curseforge_project_id` from the parameter definition
+/// 3. Gets the selected file ID from the runtime variable value
+/// 4. Retrieves the CurseForge API key from admin settings
+/// 5. Resolves the server pack (following `serverPackFileId` if needed)
+/// 6. Downloads the resolved server pack file
+#[allow(clippy::too_many_arguments)]
+pub async fn execute_download_curseforge_file(
+    handle: &Arc<PipelineHandle>,
+    state: &Arc<AppState>,
+    phase: PhaseKind,
+    step_index: u32,
+    step_name: &str,
+    server_dir: &Path,
+    vars: &HashMap<String, String>,
+    config: &crate::types::ServerConfig,
+    file_param: &str,
+    destination: &str,
+    filename: &Option<String>,
+    executable: bool,
+) -> Result<(), String> {
+    // 1. Validate that file_param references a valid CurseForgeFileVersion parameter
+    let param = config
+        .parameters
+        .iter()
+        .find(|p| p.name == file_param)
+        .ok_or_else(|| {
+            format!(
+                "Parameter '{}' not found in template configuration",
+                file_param
+            )
+        })?;
+
+    if !matches!(param.param_type, ConfigParameterType::CurseForgeFileVersion) {
+        return Err(format!(
+            "Parameter '{}' is not a curseforge_file_version type (found {:?})",
+            file_param, param.param_type
+        ));
+    }
+
+    // 2. Extract the project ID from the parameter definition
+    let project_id = param.curseforge_project_id.ok_or_else(|| {
+        format!(
+            "Parameter '{}' is missing required curseforge_project_id field",
+            file_param
+        )
+    })?;
+
+    // 3. Get the file ID from the runtime variable
+    let file_id_str = vars
+        .get(file_param)
+        .ok_or_else(|| format!("No value provided for parameter '{}'", file_param))?;
+
+    let file_id: u32 = file_id_str
+        .parse()
+        .map_err(|e| format!("Invalid CurseForge file ID '{}': {}", file_id_str, e))?;
+
+    handle.emit_log(
+        phase,
+        step_index,
+        step_name,
+        format!(
+            "Resolving CurseForge server pack for project {} file {}",
+            project_id, file_id
+        ),
+        LogStream::Stdout,
+    );
+
+    // 4. Get the CurseForge API key from settings
+    let cf_settings = state
+        .db
+        .get_curseforge_settings()
+        .await
+        .map_err(|e| format!("Failed to get CurseForge settings: {}", e))?;
+
+    let api_key = cf_settings.and_then(|s| s.api_key).ok_or_else(|| {
+        "CurseForge API key is not configured. \
+             Ask an admin to set it up in Admin Panel → CurseForge."
+            .to_string()
+    })?;
+
+    // 5. Resolve the server pack download URL
+    let resolved = crate::integrations::curseforge::resolve_server_pack_download(
+        &state.http_client,
+        &api_key,
+        project_id,
+        file_id,
+    )
+    .await
+    .map_err(|e| format!("Failed to resolve CurseForge server pack: {}", e))?;
+
+    if resolved.was_redirected {
+        handle.emit_log(
+            phase,
+            step_index,
+            step_name,
+            format!(
+                "File '{}' is a client pack — following server pack reference to file {}",
+                resolved.display_name, resolved.resolved_file_id
+            ),
+            LogStream::Stdout,
+        );
+    }
+
+    handle.emit_log(
+        phase,
+        step_index,
+        step_name,
+        format!(
+            "Downloading server pack: {} ({})",
+            resolved.file_name, resolved.download_url
+        ),
+        LogStream::Stdout,
+    );
+
+    // SSRF protection on the resolved download URL
+    check_url_not_private(&resolved.download_url)?;
+
+    // 6. Download the file
+    let dest_dir = resolve_path(server_dir, destination, vars)?;
+    std::fs::create_dir_all(&dest_dir).map_err(|e| {
+        format!(
+            "Failed to create destination directory {:?}: {}",
+            dest_dir, e
+        )
+    })?;
+
+    let fname = if let Some(ref name) = filename {
+        substitute_variables(name, vars)
+    } else {
+        resolved.file_name.clone()
+    };
+
+    let file_path = dest_dir.join(&fname);
+
+    handle.emit_log(
+        phase,
+        step_index,
+        step_name,
+        format!("Saving to {:?}", file_path),
+        LogStream::Stdout,
+    );
+
+    // Stream download with progress reporting
+    let response = state
+        .http_client
+        .get(&resolved.download_url)
+        .send()
+        .await
+        .map_err(|e| format!("Download failed: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "Download returned HTTP {}: {}",
+            response.status().as_u16(),
+            response.status().canonical_reason().unwrap_or("Unknown")
+        ));
+    }
+
+    {
+        use futures::StreamExt;
+        use tokio::io::AsyncWriteExt;
+
+        let mut file = tokio::fs::File::create(&file_path)
+            .await
+            .map_err(|e| format!("Failed to create file {:?}: {}", file_path, e))?;
+
+        let mut stream = response.bytes_stream();
+        let mut total_written: u64 = 0;
+        let mut last_progress: u64 = 0;
+        const PROGRESS_INTERVAL: u64 = 10 * 1024 * 1024;
+
+        while let Some(chunk_result) = stream.next().await {
+            let chunk =
+                chunk_result.map_err(|e| format!("Failed to read download stream: {}", e))?;
+            file.write_all(&chunk)
+                .await
+                .map_err(|e| format!("Failed to write to {:?}: {}", file_path, e))?;
+            total_written += chunk.len() as u64;
+
+            if total_written - last_progress >= PROGRESS_INTERVAL {
+                handle.emit_log(
+                    phase,
+                    step_index,
+                    step_name,
+                    format!("Downloaded {} bytes so far...", total_written),
+                    LogStream::Stdout,
+                );
+                last_progress = total_written;
+            }
+        }
+
+        file.flush()
+            .await
+            .map_err(|e| format!("Failed to flush {:?}: {}", file_path, e))?;
+
+        handle.emit_log(
+            phase,
+            step_index,
+            step_name,
+            format!("Saved to {:?} ({} bytes)", file_path, total_written),
+            LogStream::Stdout,
+        );
+    }
+
+    #[cfg(unix)]
+    if executable {
+        use std::os::unix::fs::PermissionsExt;
+        let perms = std::fs::Permissions::from_mode(0o755);
+        std::fs::set_permissions(&file_path, perms).map_err(|e| {
+            format!(
+                "Failed to set executable permission on {:?}: {}",
+                file_path, e
+            )
+        })?;
+        handle.emit_log(
+            phase,
+            step_index,
+            step_name,
+            format!("Set {:?} as executable (755)", file_path),
+            LogStream::Stdout,
+        );
+    }
+    #[cfg(not(unix))]
+    if executable {
+        handle.emit_log(
+            phase,
+            step_index,
+            step_name,
+            "Warning: executable flag is only supported on Unix systems".to_string(),
+            LogStream::Stderr,
+        );
+    }
+
+    Ok(())
+}
+
 /// Execute a SteamCMD install or update step.
 ///
 /// This function:
@@ -2139,6 +2379,35 @@ pub async fn execute_step(
                 &server.config,
                 tag_param,
                 asset_matcher,
+                destination,
+                filename,
+                *executable,
+            )
+            .await
+        }
+        StepAction::DownloadCurseForgeFile {
+            file_param,
+            destination,
+            filename,
+            executable,
+        } => {
+            let server = state
+                .db
+                .get_server(server_id)
+                .await
+                .map_err(|e| format!("Failed to get server config: {}", e))?
+                .ok_or_else(|| format!("Server {} not found", server_id))?;
+
+            execute_download_curseforge_file(
+                handle,
+                state,
+                phase,
+                step_index,
+                &step.name,
+                server_dir,
+                vars,
+                &server.config,
+                file_param,
                 destination,
                 filename,
                 *executable,

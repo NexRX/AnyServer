@@ -241,6 +241,7 @@ pub async fn perform_check(
     installed_version: Option<String>,
     vars: &HashMap<String, String>,
     template_lookup: impl FnOnce() -> Result<Option<String>, String>,
+    curseforge_api_key: Option<&str>,
 ) -> UpdateCheckResult {
     let now = Utc::now();
 
@@ -272,6 +273,9 @@ pub async fn perform_check(
             command,
             timeout_secs,
         } => execute_command_provider(command, *timeout_secs, vars).await,
+        UpdateCheckProvider::CurseForge { project_id } => {
+            execute_curseforge_provider(http_client, *project_id, curseforge_api_key).await
+        }
     };
 
     match latest_result {
@@ -298,6 +302,42 @@ pub async fn perform_check(
             error: Some(err),
         },
     }
+}
+
+/// Execute the `curseforge` provider: query the CurseForge API for the
+/// newest file of a project and return its file ID as a string.
+///
+/// The installed version (a file ID) is compared against this to
+/// determine whether an update is available.
+async fn execute_curseforge_provider(
+    http_client: &reqwest::Client,
+    project_id: u32,
+    api_key: Option<&str>,
+) -> Result<String, String> {
+    let api_key = api_key.ok_or_else(|| {
+        "CurseForge API key is not configured. \
+         Ask an admin to set it up in Admin Panel → CurseForge."
+            .to_string()
+    })?;
+
+    let files =
+        crate::integrations::curseforge::fetch_project_files(http_client, api_key, project_id, 1)
+            .await
+            .map_err(|e| {
+                format!(
+                    "Failed to fetch CurseForge files for project {}: {}",
+                    project_id, e
+                )
+            })?;
+
+    let latest = files.first().ok_or_else(|| {
+        format!(
+            "No available files found for CurseForge project {}",
+            project_id
+        )
+    })?;
+
+    Ok(latest.id.to_string())
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────
@@ -629,6 +669,7 @@ mod tests {
             Some("1.20.0".into()),
             &vars,
             || Ok(Some("1.21.4".into())),
+            None,
         )
         .await;
 
@@ -656,6 +697,7 @@ mod tests {
             Some("1.21.4".into()),
             &vars,
             || Ok(Some("1.21.4".into())),
+            None,
         )
         .await;
 
@@ -682,6 +724,7 @@ mod tests {
             Some("1.21.4".into()),
             &vars,
             || Err("Template not found".to_string()),
+            None,
         )
         .await;
 
@@ -701,14 +744,20 @@ mod tests {
         let vars = HashMap::new();
 
         let client = reqwest::Client::new();
-        let result = perform_check(&client, server_id, &update_check, None, &vars, || {
-            Ok(Some("1.21.4".into()))
-        })
+        let result = perform_check(
+            &client,
+            server_id,
+            &update_check,
+            None,
+            &vars,
+            || Ok(Some("2.0.0".to_string())),
+            None,
+        )
         .await;
 
         // No installed version → can't determine if update is available
         assert!(!result.update_available);
-        assert_eq!(result.latest_version, Some("1.21.4".into()));
+        assert_eq!(result.latest_version, Some("2.0.0".into()));
         assert!(result.error.is_none());
     }
 
@@ -735,6 +784,7 @@ mod tests {
             Some("1.21.4".into()),
             &vars,
             || unreachable!(),
+            None,
         )
         .await;
 
@@ -765,6 +815,7 @@ mod tests {
             Some("1.21.4".into()),
             &vars,
             || unreachable!(),
+            None,
         )
         .await;
 
@@ -793,6 +844,7 @@ mod tests {
             Some("1.21.4".into()),
             &vars,
             || unreachable!(),
+            None,
         )
         .await;
 
@@ -821,6 +873,7 @@ mod tests {
             Some("1.21.4".into()),
             &vars,
             || unreachable!(),
+            None,
         )
         .await;
 

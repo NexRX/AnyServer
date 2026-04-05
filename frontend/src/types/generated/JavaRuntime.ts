@@ -9,6 +9,11 @@ export type JavaRuntime = {
  */
 path: string, 
 /**
+ * The JAVA_HOME directory for this installation (e.g. `/usr/lib/jvm/java-21`).
+ * Derived by stripping the trailing `/bin/java` from the binary path.
+ */
+java_home: string, 
+/**
  * The full version string (e.g. `"21.0.2"`).
  */
 version: string, 

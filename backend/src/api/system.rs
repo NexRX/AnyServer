@@ -108,6 +108,34 @@ pub async fn get_java_runtimes(_user: AuthUser) -> Result<Json<JavaRuntimesRespo
     Ok(Json(JavaRuntimesResponse { runtimes }))
 }
 
+/// Query parameters for `GET /api/system/java-env`.
+#[derive(Debug, Deserialize)]
+pub struct JavaEnvQuery {
+    /// The JAVA_HOME directory of the runtime to use.
+    pub java_home: String,
+}
+
+/// GET /api/system/java-env
+///
+/// Generate recommended environment variables for a specific Java runtime.
+/// This helps servers that use shell scripts or wrappers that invoke `java`
+/// under the hood — setting `JAVA_HOME` ensures the correct JDK is used.
+///
+/// At spawn time the backend automatically prepends `$JAVA_HOME/bin` to
+/// `PATH`, so callers do not need to set PATH manually.
+///
+/// Query parameters:
+/// - `java_home`: The JAVA_HOME directory (from the runtime list)
+///
+/// Returns a HashMap of environment variable key-value pairs.
+pub async fn get_java_env(
+    _user: AuthUser,
+    Query(params): Query<JavaEnvQuery>,
+) -> Result<Json<HashMap<String, String>>, AppError> {
+    let env_vars = java_detect::generate_java_env_vars(&params.java_home);
+    Ok(Json(env_vars))
+}
+
 /// GET /api/system/dotnet-runtimes
 pub async fn get_dotnet_runtimes(
     _user: AuthUser,

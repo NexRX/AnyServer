@@ -14,4 +14,8 @@ interval_secs: number | null,
  * How long (in seconds) to cache a successful check result before
  * re-fetching on the next check. Default: 300 (5 minutes).
  */
-cache_secs: number, } & ({ "provider": "api", url: string, path: string | null, pick: VersionPick, value_key: string | null, } | { "provider": "template_default" } | { "provider": "command", command: string, timeout_secs: number, });
+cache_secs: number, } & ({ "provider": "api", url: string, path: string | null, pick: VersionPick, value_key: string | null, } | { "provider": "template_default" } | { "provider": "command", command: string, timeout_secs: number, } | { "provider": "curse_forge", 
+/**
+ * The CurseForge project (mod) ID.
+ */
+project_id: number, });

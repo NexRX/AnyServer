@@ -19,6 +19,11 @@ export function getDotnetRuntimes(): Promise<DotnetRuntimesResponse> {
   return request<DotnetRuntimesResponse>("GET", "/system/dotnet-runtimes");
 }
 
+export function getJavaEnv(javaHome: string): Promise<Record<string, string>> {
+  const params = new URLSearchParams({ java_home: javaHome });
+  return request<Record<string, string>>("GET", `/system/java-env?${params}`);
+}
+
 export function getDotnetEnv(
   installationRoot: string,
   serverDir?: string,

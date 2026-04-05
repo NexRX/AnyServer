@@ -107,6 +107,12 @@ describe("WizardStartStep helper selector integration", () => {
     );
   });
 
+  it("passes currentEnv prop to JavaRuntimeSelector", () => {
+    expect(source).toMatch(
+      /<JavaRuntimeSelector[\s\S]*?currentEnv=\{props\.config\.env\}/,
+    );
+  });
+
   it("passes currentBinary and currentEnv props to DotnetRuntimeSelector", () => {
     expect(source).toMatch(
       /<DotnetRuntimeSelector[\s\S]*?currentBinary=\{props\.config\.binary\}/,
@@ -116,9 +122,9 @@ describe("WizardStartStep helper selector integration", () => {
     );
   });
 
-  it("JavaRuntimeSelector onSelect updates binary via onPatchConfig", () => {
+  it("JavaRuntimeSelector onEnvChange merges env vars and updates via onPatchConfig", () => {
     expect(source).toMatch(
-      /<JavaRuntimeSelector[\s\S]*?onSelect=\{.*path.*onPatchConfig.*binary.*path/s,
+      /<JavaRuntimeSelector[\s\S]*?onEnvChange=\{.*envVars[\s\S]*?merged[\s\S]*?onPatchConfig.*env.*merged/s,
     );
   });
 

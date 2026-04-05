@@ -1,9 +1,4 @@
-import {
-  type Component,
-  createSignal,
-  createMemo,
-  Show,
-} from "solid-js";
+import { type Component, createSignal, createMemo, Show } from "solid-js";
 import type {
   ServerConfig,
   PipelineStep,
@@ -13,7 +8,9 @@ import PipelineEditor from "../PipelineEditor";
 import ParameterDefinitionEditor from "../ParameterDefinitionEditor";
 import ParamRefHint from "../ParamRefHint";
 import JavaRuntimeSelector, { isJavaBinary } from "../JavaRuntimeSelector";
-import DotnetRuntimeSelector, { isDotnetBinary } from "../DotnetRuntimeSelector";
+import DotnetRuntimeSelector, {
+  isDotnetBinary,
+} from "../DotnetRuntimeSelector";
 import { updateServer } from "../../api/client";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -64,21 +61,37 @@ function envToText(env: Record<string, string>): string {
 
 const ServerPipelinesTab: Component<ServerPipelinesTabProps> = (props) => {
   // ── Pipeline step editing state ──
-  const [editStopSteps, setEditStopSteps] = createSignal<PipelineStep[] | null>(null);
-  const [editStartSteps, setEditStartSteps] = createSignal<PipelineStep[] | null>(null);
-  const [editInstallSteps, setEditInstallSteps] = createSignal<PipelineStep[] | null>(null);
-  const [editUpdateSteps, setEditUpdateSteps] = createSignal<PipelineStep[] | null>(null);
-  const [editUninstallSteps, setEditUninstallSteps] = createSignal<PipelineStep[] | null>(null);
-  const [editParameters, setEditParameters] = createSignal<ConfigParameter[] | null>(null);
+  const [editStopSteps, setEditStopSteps] = createSignal<PipelineStep[] | null>(
+    null,
+  );
+  const [editStartSteps, setEditStartSteps] = createSignal<
+    PipelineStep[] | null
+  >(null);
+  const [editInstallSteps, setEditInstallSteps] = createSignal<
+    PipelineStep[] | null
+  >(null);
+  const [editUpdateSteps, setEditUpdateSteps] = createSignal<
+    PipelineStep[] | null
+  >(null);
+  const [editUninstallSteps, setEditUninstallSteps] = createSignal<
+    PipelineStep[] | null
+  >(null);
+  const [editParameters, setEditParameters] = createSignal<
+    ConfigParameter[] | null
+  >(null);
 
   // ── Start configuration editing state ──
   const [editBinary, setEditBinary] = createSignal<string | null>(null);
   const [editArgsText, setEditArgsText] = createSignal<string | null>(null);
   const [editEnvText, setEditEnvText] = createSignal<string | null>(null);
   const [editWorkingDir, setEditWorkingDir] = createSignal<string | null>(null);
-  const [editStopCommand, setEditStopCommand] = createSignal<string | null>(null);
+  const [editStopCommand, setEditStopCommand] = createSignal<string | null>(
+    null,
+  );
   const [editStopSignal, setEditStopSignal] = createSignal<string | null>(null);
-  const [editStopTimeout, setEditStopTimeout] = createSignal<number | null>(null);
+  const [editStopTimeout, setEditStopTimeout] = createSignal<number | null>(
+    null,
+  );
 
   // ── UI state ──
   const [pipelineSaved, setPipelineSaved] = createSignal(false);
@@ -89,19 +102,29 @@ const ServerPipelinesTab: Component<ServerPipelinesTabProps> = (props) => {
   // render of the pipelines tab, ServerDetail used to eagerly populate these.
   // Now we do it lazily: each field falls back to props.config.*.
   const initIfNeeded = () => {
-    if (editStopSteps() === null) setEditStopSteps([...props.config.stop_steps]);
-    if (editStartSteps() === null) setEditStartSteps([...props.config.start_steps]);
-    if (editInstallSteps() === null) setEditInstallSteps([...props.config.install_steps]);
-    if (editUpdateSteps() === null) setEditUpdateSteps([...props.config.update_steps]);
-    if (editUninstallSteps() === null) setEditUninstallSteps([...props.config.uninstall_steps]);
-    if (editParameters() === null) setEditParameters([...props.config.parameters]);
+    if (editStopSteps() === null)
+      setEditStopSteps([...props.config.stop_steps]);
+    if (editStartSteps() === null)
+      setEditStartSteps([...props.config.start_steps]);
+    if (editInstallSteps() === null)
+      setEditInstallSteps([...props.config.install_steps]);
+    if (editUpdateSteps() === null)
+      setEditUpdateSteps([...props.config.update_steps]);
+    if (editUninstallSteps() === null)
+      setEditUninstallSteps([...props.config.uninstall_steps]);
+    if (editParameters() === null)
+      setEditParameters([...props.config.parameters]);
     if (editBinary() === null) setEditBinary(props.config.binary);
     if (editArgsText() === null) setEditArgsText(props.config.args.join(" "));
     if (editEnvText() === null) setEditEnvText(envToText(props.config.env));
-    if (editWorkingDir() === null) setEditWorkingDir(props.config.working_dir ?? "");
-    if (editStopCommand() === null) setEditStopCommand(props.config.stop_command ?? "");
-    if (editStopSignal() === null) setEditStopSignal(props.config.stop_signal ?? "sigterm");
-    if (editStopTimeout() === null) setEditStopTimeout(props.config.stop_timeout_secs);
+    if (editWorkingDir() === null)
+      setEditWorkingDir(props.config.working_dir ?? "");
+    if (editStopCommand() === null)
+      setEditStopCommand(props.config.stop_command ?? "");
+    if (editStopSignal() === null)
+      setEditStopSignal(props.config.stop_signal ?? "sigterm");
+    if (editStopTimeout() === null)
+      setEditStopTimeout(props.config.stop_timeout_secs);
   };
 
   // Run on mount
@@ -174,8 +197,7 @@ const ServerPipelinesTab: Component<ServerPipelinesTabProps> = (props) => {
         stop_signal:
           (editStopSignal() as ServerConfig["stop_signal"]) ??
           props.config.stop_signal,
-        stop_timeout_secs:
-          editStopTimeout() ?? props.config.stop_timeout_secs,
+        stop_timeout_secs: editStopTimeout() ?? props.config.stop_timeout_secs,
         parameters: editParameters() ?? props.config.parameters,
         stop_steps: editStopSteps() ?? props.config.stop_steps,
         start_steps: editStartSteps() ?? props.config.start_steps,
@@ -214,9 +236,25 @@ const ServerPipelinesTab: Component<ServerPipelinesTabProps> = (props) => {
     }
   };
 
+  const handleJavaEnvMerge = (envVars: Record<string, string>) => {
+    const currentText = editEnvText() ?? envToText(props.config.env);
+    const currentEnv = parseEnvText(currentText);
+
+    const merged = { ...currentEnv };
+    for (const [key, value] of Object.entries(envVars)) {
+      if (value === "") {
+        delete merged[key];
+      } else {
+        merged[key] = value;
+      }
+    }
+
+    setEditEnvText(envToText(merged));
+    markDirty();
+  };
+
   const handleDotnetEnvMerge = (envVars: Record<string, string>) => {
-    const currentText =
-      editEnvText() ?? envToText(props.config.env);
+    const currentText = editEnvText() ?? envToText(props.config.env);
     const currentEnv = parseEnvText(currentText);
 
     const merged = { ...currentEnv };
@@ -317,16 +355,26 @@ const ServerPipelinesTab: Component<ServerPipelinesTabProps> = (props) => {
                 value={editBinary() ?? props.config.binary}
                 parameterNames={parameterNames()}
               />
-              <Show when={isJavaBinary(editBinary() ?? props.config.binary)}>
+              <Show
+                when={
+                  isJavaBinary(editBinary() ?? props.config.binary) ||
+                  props.config.enable_java_helper ||
+                  !!currentEnvObject()["JAVA_HOME"]
+                }
+              >
                 <JavaRuntimeSelector
                   currentBinary={editBinary() ?? props.config.binary}
-                  onSelect={(path) => {
-                    setEditBinary(path);
-                    markDirty();
-                  }}
+                  currentEnv={currentEnvObject()}
+                  onEnvChange={handleJavaEnvMerge}
                 />
               </Show>
-              <Show when={isDotnetBinary(editBinary() ?? props.config.binary)}>
+              <Show
+                when={
+                  isDotnetBinary(editBinary() ?? props.config.binary) ||
+                  props.config.enable_dotnet_helper ||
+                  !!currentEnvObject()["DOTNET_ROOT"]
+                }
+              >
                 <DotnetRuntimeSelector
                   currentBinary={editBinary() ?? props.config.binary}
                   currentEnv={currentEnvObject()}
@@ -396,7 +444,9 @@ const ServerPipelinesTab: Component<ServerPipelinesTabProps> = (props) => {
                   }}
                   placeholder='e.g. "stop" for Minecraft'
                 />
-                <small>Sent to stdin for graceful shutdown. Empty = SIGTERM.</small>
+                <small>
+                  Sent to stdin for graceful shutdown. Empty = SIGTERM.
+                </small>
               </div>
             </div>
 
@@ -404,7 +454,9 @@ const ServerPipelinesTab: Component<ServerPipelinesTabProps> = (props) => {
             <div class="form-group">
               <label>Stop Signal</label>
               <select
-                value={editStopSignal() ?? props.config.stop_signal ?? "sigterm"}
+                value={
+                  editStopSignal() ?? props.config.stop_signal ?? "sigterm"
+                }
                 onChange={(e) => {
                   setEditStopSignal(e.currentTarget.value);
                   markDirty();
@@ -455,6 +507,7 @@ const ServerPipelinesTab: Component<ServerPipelinesTabProps> = (props) => {
             markDirty();
           }}
           parameterNames={parameterNames()}
+          parameters={props.config.parameters}
         />
       </div>
 
@@ -469,6 +522,7 @@ const ServerPipelinesTab: Component<ServerPipelinesTabProps> = (props) => {
             markDirty();
           }}
           parameterNames={parameterNames()}
+          parameters={props.config.parameters}
         />
       </div>
 
@@ -483,6 +537,7 @@ const ServerPipelinesTab: Component<ServerPipelinesTabProps> = (props) => {
             markDirty();
           }}
           parameterNames={parameterNames()}
+          parameters={props.config.parameters}
         />
       </div>
 
@@ -497,6 +552,7 @@ const ServerPipelinesTab: Component<ServerPipelinesTabProps> = (props) => {
             markDirty();
           }}
           parameterNames={parameterNames()}
+          parameters={props.config.parameters}
         />
       </div>
 
@@ -511,6 +567,7 @@ const ServerPipelinesTab: Component<ServerPipelinesTabProps> = (props) => {
             markDirty();
           }}
           parameterNames={parameterNames()}
+          parameters={props.config.parameters}
         />
       </div>
     </div>

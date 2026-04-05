@@ -912,6 +912,22 @@ pub fn start_server(
             }
         }
 
+        // ── Auto-prepend JAVA_HOME/bin to PATH ──
+        // When the user selects a Java runtime via the helper, only
+        // `JAVA_HOME` is stored in the server config.  To make sure
+        // shell scripts (and any sub-process that invokes bare `java`)
+        // pick up the selected JDK, we prepend `$JAVA_HOME/bin` to the
+        // inherited system PATH automatically.
+        if let Some(java_home) = resolved_env.get("JAVA_HOME").cloned() {
+            let java_bin_dir = std::path::PathBuf::from(&java_home).join("bin");
+            if java_bin_dir.is_dir() {
+                let current_path = std::env::var("PATH").unwrap_or_default();
+                let new_path = format!("{}:{}", java_bin_dir.display(), current_path);
+                // Only set PATH if the user hasn't explicitly provided one
+                resolved_env.entry("PATH".to_string()).or_insert(new_path);
+            }
+        }
+
         // ── Resolve stop command ──
         // Pipeline `SetStopCommand` takes priority over `ServerConfig.stop_command`.
         let effective_stop_command = pipeline_config

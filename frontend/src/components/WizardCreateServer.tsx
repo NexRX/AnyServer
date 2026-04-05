@@ -290,6 +290,7 @@ const WizardCreateServer: Component = () => {
         steps={config().install_steps}
         onChange={(install_steps) => patchConfig({ install_steps })}
         parameterNames={parameterNames()}
+        parameters={config().parameters}
         defaultCollapsed={false}
       />
     </div>
@@ -303,6 +304,7 @@ const WizardCreateServer: Component = () => {
         steps={config().update_steps}
         onChange={(update_steps) => patchConfig({ update_steps })}
         parameterNames={parameterNames()}
+        parameters={config().parameters}
         defaultCollapsed={false}
       />
     </div>

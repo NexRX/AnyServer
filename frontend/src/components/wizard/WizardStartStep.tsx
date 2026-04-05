@@ -72,7 +72,23 @@ const WizardStartStep: Component<Props> = (props) => {
         <Show when={showJavaHelper()}>
           <JavaRuntimeSelector
             currentBinary={props.config.binary}
-            onSelect={(path) => props.onPatchConfig({ binary: path })}
+            currentEnv={props.config.env}
+            onEnvChange={(envVars) => {
+              const merged = { ...props.config.env };
+              for (const [key, value] of Object.entries(envVars)) {
+                if (value === "") {
+                  delete merged[key];
+                } else {
+                  merged[key] = value;
+                }
+              }
+              props.onPatchConfig({ env: merged });
+              // Update the env text to reflect the changes
+              const newEnvText = Object.entries(merged)
+                .map(([k, v]) => `${k}=${v}`)
+                .join("\n");
+              props.onSetEnvText(newEnvText);
+            }}
           />
         </Show>
         <Show when={showDotnetHelper()}>

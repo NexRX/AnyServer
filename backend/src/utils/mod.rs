@@ -6,7 +6,7 @@ pub mod steamcmd;
 
 pub use dotnet_detect::{detect_dotnet_runtimes, generate_dotnet_env_vars};
 pub use fetch_options::{extract_options, sort_and_limit, substitute_template_vars};
-pub use java_detect::detect_java_runtimes;
+pub use java_detect::{detect_java_runtimes, generate_java_env_vars};
 pub use json_path::json_navigate;
 pub use steamcmd::{
     config_requires_steamcmd, detect_steamcmd, detect_steamcmd_cached, invalidate_steamcmd_cache,

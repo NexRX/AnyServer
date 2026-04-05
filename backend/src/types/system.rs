@@ -10,6 +10,9 @@ use ts_rs::TS;
 pub struct JavaRuntime {
     /// Absolute path to the `java` binary (e.g. `/usr/lib/jvm/java-21/bin/java`).
     pub path: String,
+    /// The JAVA_HOME directory for this installation (e.g. `/usr/lib/jvm/java-21`).
+    /// Derived by stripping the trailing `/bin/java` from the binary path.
+    pub java_home: String,
     /// The full version string (e.g. `"21.0.2"`).
     pub version: String,
     /// The major version number (e.g. `21` for Java 21).
@@ -224,6 +227,60 @@ pub struct GithubSettings {
     /// Stored encrypted in the database.
     #[serde(default)]
     pub api_token: Option<String>,
+}
+
+// ─── CurseForge Integration ───
+
+/// CurseForge API configuration stored in system settings.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../frontend/src/types/generated/")]
+pub struct CurseForgeSettings {
+    /// CurseForge API key (from https://console.curseforge.com/).
+    /// Stored encrypted in the database.
+    #[serde(default)]
+    pub api_key: Option<String>,
+}
+
+/// Request body for `PUT /api/admin/settings/curseforge`.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../frontend/src/types/generated/")]
+pub struct SaveCurseForgeSettingsRequest {
+    /// CurseForge API key. If empty or null, clears the existing key.
+    #[serde(default)]
+    pub api_key: Option<String>,
+}
+
+/// Response from `GET /api/admin/settings/curseforge`.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../frontend/src/types/generated/")]
+pub struct CurseForgeSettingsResponse {
+    /// Whether a CurseForge API key is currently configured (doesn't reveal the actual key).
+    pub has_key: bool,
+}
+
+/// A CurseForge file version option returned by the proxy endpoint.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../frontend/src/types/generated/")]
+pub struct CurseForgeFileOption {
+    /// The file ID (used as the parameter value).
+    pub value: String,
+    /// The display name shown to the user.
+    pub label: String,
+}
+
+/// Response from `GET /api/curseforge/files`.
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../frontend/src/types/generated/")]
+pub struct CurseForgeFilesResponse {
+    /// List of available file versions.
+    pub options: Vec<CurseForgeFileOption>,
+}
+
+/// Query parameters for `GET /api/curseforge/files`.
+#[derive(Debug, Clone, Deserialize)]
+pub struct CurseForgeFilesQuery {
+    /// CurseForge project (mod) ID.
+    pub project_id: u32,
 }
 
 /// Request body for `POST /api/admin/settings/github`.

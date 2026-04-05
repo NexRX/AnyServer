@@ -57,6 +57,16 @@ pub enum UpdateCheckProvider {
         #[serde(default = "default_command_timeout")]
         timeout_secs: u32,
     },
+    /// Query the CurseForge API for the latest file ID of a project.
+    ///
+    /// Compares the server's installed file ID against the newest
+    /// available file on CurseForge. Requires the CurseForge API key
+    /// to be configured in admin settings.
+    CurseForge {
+        /// The CurseForge project (mod) ID.
+        #[ts(type = "number")]
+        project_id: u32,
+    },
 }
 
 fn default_pick() -> VersionPick {

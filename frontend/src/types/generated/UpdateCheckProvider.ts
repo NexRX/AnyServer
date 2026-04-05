@@ -4,4 +4,8 @@ import type { VersionPick } from "./VersionPick";
 /**
  * The strategy used to determine the latest available version.
  */
-export type UpdateCheckProvider = { "provider": "api", url: string, path: string | null, pick: VersionPick, value_key: string | null, } | { "provider": "template_default" } | { "provider": "command", command: string, timeout_secs: number, };
+export type UpdateCheckProvider = { "provider": "api", url: string, path: string | null, pick: VersionPick, value_key: string | null, } | { "provider": "template_default" } | { "provider": "command", command: string, timeout_secs: number, } | { "provider": "curse_forge", 
+/**
+ * The CurseForge project (mod) ID.
+ */
+project_id: number, };

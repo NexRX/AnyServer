@@ -98,6 +98,7 @@ fn build_fully_configured_server_with_status() -> anyserver::types::ServerWithSt
                 is_version: true,
                 options_from: None,
                 github_repo: None,
+                curseforge_project_id: None,
             },
             ConfigParameter {
                 name: "memory".to_string(),
@@ -111,6 +112,7 @@ fn build_fully_configured_server_with_status() -> anyserver::types::ServerWithSt
                 is_version: false,
                 options_from: None,
                 github_repo: None,
+                curseforge_project_id: None,
             },
         ],
         install_steps: make_steps(3, "install"),

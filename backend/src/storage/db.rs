@@ -1113,6 +1113,27 @@ impl Database {
     }
 
     // ──────────────────────────────────────────────
+    //  CurseForge Settings
+    // ──────────────────────────────────────────────
+
+    pub async fn get_curseforge_settings(
+        &self,
+    ) -> Result<Option<crate::types::system::CurseForgeSettings>, AppError> {
+        self.get_json_setting("curseforge").await
+    }
+
+    pub async fn save_curseforge_settings(
+        &self,
+        settings: &crate::types::system::CurseForgeSettings,
+    ) -> Result<(), AppError> {
+        self.save_json_setting("curseforge", settings).await
+    }
+
+    pub async fn delete_curseforge_settings(&self) -> Result<bool, AppError> {
+        self.delete_setting("curseforge").await
+    }
+
+    // ──────────────────────────────────────────────
     //  Alert Config
     // ──────────────────────────────────────────────
 

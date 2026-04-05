@@ -34,6 +34,14 @@ const ACTION_TYPES = [
   { value: "sleep", label: "Sleep / Wait" },
   { value: "wait_for_output", label: "Wait for Console Output" },
   { value: "resolve_variable", label: "Resolve Variable (API)" },
+  {
+    value: "download_github_release_asset",
+    label: "Download GitHub Release Asset",
+  },
+  {
+    value: "download_curse_forge_file",
+    label: "Download CurseForge Server Pack",
+  },
   { value: "steam_cmd_install", label: "SteamCMD Install" },
   { value: "steam_cmd_update", label: "SteamCMD Update" },
 ] as const;
@@ -128,6 +136,23 @@ function defaultAction(type: string): StepAction {
         value_key: null,
         variable: "",
       };
+    case "download_github_release_asset":
+      return {
+        type: "download_github_release_asset",
+        tag_param: "",
+        asset_matcher: "",
+        destination: ".",
+        filename: null,
+        executable: false,
+      };
+    case "download_curse_forge_file":
+      return {
+        type: "download_curse_forge_file",
+        file_param: "",
+        destination: ".",
+        filename: null,
+        executable: false,
+      };
     case "steam_cmd_install":
     case "steam_cmd_update":
       return {
@@ -168,6 +193,8 @@ interface Props {
   action: StepAction;
   onChange: (action: StepAction) => void;
   parameterNames?: string[];
+  /** Full parameter definitions, used to filter by type for specific step actions */
+  parameters?: Array<{ name: string; param_type: string }>;
 }
 
 const StepActionEditor: Component<Props> = (props) => {
@@ -906,6 +933,158 @@ const StepActionEditor: Component<Props> = (props) => {
 
   // ─── Edit File sub-editors ───
 
+  const renderDownloadGithubReleaseAsset = () => {
+    const a = props.action as Extract<
+      StepAction,
+      { type: "download_github_release_asset" }
+    >;
+    return (
+      <div class="step-action-fields">
+        <div class="form-group">
+          <label>Tag Parameter</label>
+          <input
+            type="text"
+            value={a.tag_param}
+            onInput={(e) => patch({ tag_param: e.currentTarget.value })}
+            placeholder="parameter_name"
+          />
+          <small>
+            Must reference a parameter of type "GitHub Release Tag" in the
+            template's parameter list.
+          </small>
+        </div>
+        <div class="form-group">
+          <label>Asset Matcher</label>
+          <input
+            type="text"
+            value={a.asset_matcher}
+            onInput={(e) => patch({ asset_matcher: e.currentTarget.value })}
+            placeholder="/pattern/ or exact-filename.zip"
+          />
+          <small>
+            Exact filename or regex wrapped in forward slashes (e.g.{" "}
+            <code>/server-.*\.jar$/</code>).
+          </small>
+          <ParamRefHint value={a.asset_matcher} parameterNames={paramNames()} />
+        </div>
+        <div class="form-group">
+          <label>Destination</label>
+          <input
+            type="text"
+            value={a.destination}
+            onInput={(e) => patch({ destination: e.currentTarget.value })}
+            placeholder="."
+          />
+          <ParamRefHint value={a.destination} parameterNames={paramNames()} />
+        </div>
+        <div class="form-group">
+          <label>Filename Override (optional)</label>
+          <input
+            type="text"
+            value={a.filename ?? ""}
+            onInput={(e) => patch({ filename: e.currentTarget.value || null })}
+            placeholder="(use original asset name)"
+          />
+          <ParamRefHint value={a.filename} parameterNames={paramNames()} />
+        </div>
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            checked={a.executable}
+            onChange={(e) => patch({ executable: e.currentTarget.checked })}
+          />
+          Mark as executable (Unix only)
+        </label>
+      </div>
+    );
+  };
+
+  const renderDownloadCurseForgeFile = () => {
+    const a = props.action as Extract<
+      StepAction,
+      { type: "download_curse_forge_file" }
+    >;
+
+    // Filter to only CurseForge file version parameters
+    const cfParams = () =>
+      (props.parameters ?? []).filter(
+        (p) => p.param_type === "curse_forge_file_version",
+      );
+
+    return (
+      <div class="step-action-fields">
+        <div class="form-group">
+          <label>File Version Parameter</label>
+          <Show
+            when={cfParams().length > 0}
+            fallback={
+              <div>
+                <input
+                  type="text"
+                  value={a.file_param}
+                  onInput={(e) => patch({ file_param: e.currentTarget.value })}
+                  placeholder="parameter_name"
+                />
+                <small style={{ color: "#f59e0b" }}>
+                  No CurseForge File Version parameters defined yet. Add one in
+                  the Parameters section above, or type a parameter name
+                  manually.
+                </small>
+              </div>
+            }
+          >
+            <select
+              value={a.file_param}
+              onChange={(e) => patch({ file_param: e.currentTarget.value })}
+            >
+              <option value="">— select parameter —</option>
+              <For each={cfParams()}>
+                {(p) => <option value={p.name}>{p.name}</option>}
+              </For>
+            </select>
+            <small>
+              Must reference a parameter of type "CurseForge File Version". The
+              user's selected file ID will be used to resolve and download the
+              server pack.
+            </small>
+          </Show>
+        </div>
+        <div class="form-group">
+          <label>Destination</label>
+          <input
+            type="text"
+            value={a.destination}
+            onInput={(e) => patch({ destination: e.currentTarget.value })}
+            placeholder="."
+          />
+          <ParamRefHint value={a.destination} parameterNames={paramNames()} />
+        </div>
+        <div class="form-group">
+          <label>Filename Override (optional)</label>
+          <input
+            type="text"
+            value={a.filename ?? ""}
+            onInput={(e) => patch({ filename: e.currentTarget.value || null })}
+            placeholder="(use original filename from CurseForge)"
+          />
+          <small>
+            Leave blank to use the server pack's original filename. Set a value
+            to rename the downloaded file.
+          </small>
+          <ParamRefHint value={a.filename} parameterNames={paramNames()} />
+        </div>
+        <label class="checkbox-label">
+          <input
+            type="checkbox"
+            checked={a.executable}
+            onChange={(e) => patch({ executable: e.currentTarget.checked })}
+          />
+          Mark as executable (Unix only)
+        </label>
+      </div>
+    );
+  };
+
   const renderSteamCmdInstall = () => {
     const a = props.action as Extract<
       StepAction,
@@ -1224,6 +1403,12 @@ const StepActionEditor: Component<Props> = (props) => {
         </Show>
         <Show when={props.action.type === "resolve_variable"}>
           {renderResolveVariable()}
+        </Show>
+        <Show when={props.action.type === "download_github_release_asset"}>
+          {renderDownloadGithubReleaseAsset()}
+        </Show>
+        <Show when={props.action.type === "download_curse_forge_file"}>
+          {renderDownloadCurseForgeFile()}
         </Show>
         <Show
           when={

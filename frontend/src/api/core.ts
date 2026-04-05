@@ -223,6 +223,11 @@ export async function request<TResponse>(
     throw new ApiClientError(res.status, err);
   }
 
+  // 204 No Content — nothing to parse.
+  if (res.status === 204) {
+    return undefined as TResponse;
+  }
+
   return res.json() as Promise<TResponse>;
 }
 

@@ -91,6 +91,7 @@ export {
 export {
   getSystemHealth,
   getJavaRuntimes,
+  getJavaEnv,
   getDotnetRuntimes,
   getDotnetEnv,
   getSteamCmdStatus,

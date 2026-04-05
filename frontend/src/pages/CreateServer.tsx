@@ -13,6 +13,7 @@ import { useNavigate } from "@solidjs/router";
 import { createServer, listTemplates } from "../api/client";
 import { fetchOptions } from "../api/templates";
 import { fetchGithubReleases } from "../api/github";
+import { fetchCurseForgeFiles } from "../api/curseforge";
 import JavaRuntimeSelector, {
   isJavaBinary,
 } from "../components/JavaRuntimeSelector";
@@ -545,6 +546,140 @@ const CreateServer: Component = () => {
           </div>
         );
 
+      case "curse_forge_file_version":
+        return (
+          <div class="form-group">
+            <label>
+              {param.label}
+              {param.required && " *"}
+            </label>
+            <div
+              style={{
+                display: "flex",
+                "align-items": "center",
+                gap: "0.5rem",
+              }}
+            >
+              <div style={{ flex: "1" }}>
+                <Show
+                  when={hasDynamic()}
+                  fallback={
+                    <input
+                      type="text"
+                      value={value()}
+                      onInput={(e) =>
+                        handleParamChange(param.name, e.currentTarget.value)
+                      }
+                      placeholder="Click 'Load versions' to see options"
+                      style={{ width: "100%" }}
+                    />
+                  }
+                >
+                  <SearchableSelect
+                    options={getMergedOptions(param).map((opt) => ({
+                      value: opt.value,
+                      label: opt.label,
+                    }))}
+                    value={value()}
+                    onChange={(v) => handleParamChange(param.name, v)}
+                    allowEmpty={!param.required}
+                    emptyLabel="— select a version —"
+                    placeholder="Search file versions…"
+                  />
+                </Show>
+              </div>
+              <button
+                class="btn btn-sm"
+                onClick={async () => {
+                  if (!param.curseforge_project_id) {
+                    setOptionErrors({
+                      ...optionErrors(),
+                      [param.name]: "No CurseForge project ID configured",
+                    });
+                    return;
+                  }
+                  setLoadingOptions({
+                    ...loadingOptions(),
+                    [param.name]: true,
+                  });
+                  setOptionErrors((prev) => {
+                    const n = { ...prev };
+                    delete n[param.name];
+                    return n;
+                  });
+                  try {
+                    const resp = await fetchCurseForgeFiles(
+                      param.curseforge_project_id,
+                    );
+                    const options = resp.options.map(
+                      (o: { value: string; label: string }) => ({
+                        value: o.value,
+                        label: o.label,
+                      }),
+                    );
+                    setDynamicOptions({
+                      ...dynamicOptions(),
+                      [param.name]: options,
+                    });
+                    // Auto-select first option if nothing selected
+                    if (!value() && options.length > 0) {
+                      handleParamChange(param.name, options[0].value);
+                    }
+                  } catch (err) {
+                    const msg =
+                      err instanceof Error ? err.message : String(err);
+                    setOptionErrors({ ...optionErrors(), [param.name]: msg });
+                  } finally {
+                    setLoadingOptions({
+                      ...loadingOptions(),
+                      [param.name]: false,
+                    });
+                  }
+                }}
+                disabled={isLoadingOpt()}
+                title="Fetch file versions from CurseForge"
+                style={{
+                  "white-space": "nowrap",
+                  "min-width": "fit-content",
+                  background: hasDynamic()
+                    ? "linear-gradient(135deg, #f97316 0%, #ea580c 100%)"
+                    : undefined,
+                  border: hasDynamic() ? "none" : undefined,
+                  color: hasDynamic() ? "#fff" : undefined,
+                  "box-shadow": hasDynamic()
+                    ? "0 2px 8px rgba(249, 115, 22, 0.3)"
+                    : undefined,
+                }}
+              >
+                {isLoadingOpt()
+                  ? "Loading…"
+                  : hasDynamic()
+                    ? "↻ Refresh"
+                    : "🔍 Load versions"}
+              </button>
+            </div>
+            <Show when={optError()}>
+              <small style={{ color: "#ef4444" }}>{optError()}</small>
+            </Show>
+            <Show when={param.description}>
+              <small>{param.description}</small>
+            </Show>
+            <Show when={hasDynamic() && value()}>
+              <small
+                style={{
+                  color: "#10b981",
+                  display: "flex",
+                  "align-items": "center",
+                  gap: "0.25rem",
+                  "margin-top": "0.25rem",
+                }}
+              >
+                ✓ Selected: file ID {value()}
+              </small>
+            </Show>
+          </div>
+        );
+
       case "boolean":
         return (
           <label class="checkbox-label">
@@ -961,12 +1096,26 @@ const CreateServer: Component = () => {
                   }}
                 >
                   This template uses Java. You can optionally select a specific
-                  Java installation to use instead of the system default.
+                  Java runtime to configure via environment variables. The
+                  backend automatically prepends <code>$JAVA_HOME/bin</code> to{" "}
+                  <code>PATH</code>, so shell scripts will use the selected
+                  runtime.
                 </p>
                 <JavaRuntimeSelector
                   currentBinary={config().binary}
-                  onSelect={(path) => {
-                    setConfig((prev) => ({ ...prev, binary: path }));
+                  currentEnv={config().env}
+                  onEnvChange={(envVars) => {
+                    setConfig((prev) => {
+                      const merged = { ...prev.env };
+                      for (const [key, value] of Object.entries(envVars)) {
+                        if (value === "") {
+                          delete merged[key];
+                        } else {
+                          merged[key] = value;
+                        }
+                      }
+                      return { ...prev, env: merged };
+                    });
                   }}
                 />
               </div>

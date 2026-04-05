@@ -11,6 +11,7 @@ import AlertsTab from "../components/admin/AlertsTab";
 import PasswordTab from "../components/admin/PasswordTab";
 import SessionsTab from "../components/admin/SessionsTab";
 import GithubTab from "../components/admin/GithubTab";
+import CurseForgeTab from "../components/admin/CurseForgeTab";
 import SandboxFeatureTab from "../components/admin/SandboxFeatureTab";
 
 type Tab =
@@ -23,6 +24,7 @@ type Tab =
   | "alerts"
   | "sessions"
   | "github"
+  | "curseforge"
   | "sandbox";
 
 const AdminPanel: Component = () => {
@@ -104,6 +106,12 @@ const AdminPanel: Component = () => {
             GitHub
           </button>
           <button
+            class={`tab ${tab() === "curseforge" ? "active" : ""}`}
+            onClick={() => setTab("curseforge")}
+          >
+            CurseForge
+          </button>
+          <button
             class={`tab ${tab() === "sandbox" ? "active" : ""}`}
             onClick={() => setTab("sandbox")}
           >
@@ -138,6 +146,9 @@ const AdminPanel: Component = () => {
           </Show>
           <Show when={tab() === "github"}>
             <GithubTab />
+          </Show>
+          <Show when={tab() === "curseforge"}>
+            <CurseForgeTab />
           </Show>
           <Show when={tab() === "sandbox"}>
             <SandboxFeatureTab />

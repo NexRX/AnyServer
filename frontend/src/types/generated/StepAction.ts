@@ -59,6 +59,25 @@ filename: string | null,
 /**
  * Whether to mark the downloaded file as executable (Unix only).
  */
+executable: boolean, } | { "type": "download_curse_forge_file", 
+/**
+ * The name of a `CurseForgeFileVersion` parameter.
+ * Must reference a parameter of type `CurseForgeFileVersion` in the
+ * template's parameter list.
+ */
+file_param: string, 
+/**
+ * Destination directory to save the downloaded file.
+ */
+destination: string, 
+/**
+ * Optional filename override. If not specified, uses the server
+ * pack's original filename from CurseForge.
+ */
+filename: string | null, 
+/**
+ * Whether to mark the downloaded file as executable (Unix only).
+ */
 executable: boolean, } | { "type": "steam_cmd_install", 
 /**
  * Override the Steam app ID. If `None`, uses the server config's

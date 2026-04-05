@@ -25,6 +25,11 @@ const PARAM_TYPES: {
     label: "Select",
     description: "Dropdown with predefined options",
   },
+  {
+    value: "curse_forge_file_version",
+    label: "CurseForge File Version",
+    description: "Dropdown of file versions from a CurseForge project",
+  },
 ];
 
 function blankParameter(index: number): ConfigParameter {
@@ -40,6 +45,7 @@ function blankParameter(index: number): ConfigParameter {
     is_version: false,
     options_from: null,
     github_repo: null,
+    curseforge_project_id: null,
   };
 }
 
@@ -361,6 +367,17 @@ const ParameterDefinitionEditor: Component<Props> = (props) => {
                                   // Reset regex when switching away from string
                                   if (newType !== "string" && param().regex) {
                                     updates.regex = null;
+                                  }
+                                  // Reset curseforge_project_id when switching away
+                                  if (
+                                    newType !== "curse_forge_file_version" &&
+                                    param().curseforge_project_id != null
+                                  ) {
+                                    updates.curseforge_project_id = null;
+                                  }
+                                  // Auto-set required for CurseForge params
+                                  if (newType === "curse_forge_file_version") {
+                                    updates.required = true;
                                   }
                                   patch(index, updates);
                                 }}
@@ -717,12 +734,48 @@ const ParameterDefinitionEditor: Component<Props> = (props) => {
                           </Show>
 
                           {/* ─── Regex (only when type is string) ─── */}
+                          {/* ─── CurseForge Project ID (only when type is curseforge_file_version) ─── */}
+                          <Show
+                            when={
+                              param().param_type === "curse_forge_file_version"
+                            }
+                          >
+                            <div
+                              class="form-group"
+                              style={{ "margin-top": "0.75rem" }}
+                            >
+                              <label>CurseForge Project ID</label>
+                              <input
+                                type="number"
+                                value={
+                                  param().curseforge_project_id?.toString() ??
+                                  ""
+                                }
+                                onInput={(e) => {
+                                  const v = e.currentTarget.value;
+                                  const n = v ? parseInt(v, 10) : null;
+                                  patch(index, {
+                                    curseforge_project_id:
+                                      n != null && !isNaN(n) ? n : null,
+                                  });
+                                }}
+                                placeholder="e.g. 857790"
+                              />
+                              <small>
+                                The numeric project ID from CurseForge (visible
+                                in the project page URL). Users will see a
+                                dropdown of available file versions from this
+                                project when creating a server.
+                              </small>
+                            </div>
+                          </Show>
+
                           <Show when={param().param_type === "string"}>
                             <div
                               class="form-group"
                               style={{ "margin-top": "0.75rem" }}
                             >
-                              <label>Validation Regex</label>
+                              <label>Regex Validation</label>
                               <input
                                 type="text"
                                 value={param().regex ?? ""}

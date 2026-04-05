@@ -1,5 +1,6 @@
 pub mod alerts;
 pub mod auth;
+pub mod curseforge;
 pub mod files;
 pub mod github;
 pub mod import;
@@ -238,6 +239,7 @@ pub fn router() -> Router<Arc<AppState>> {
     let system_routes = Router::new()
         .route("/system/health", get(system::get_health))
         .route("/system/java-runtimes", get(system::get_java_runtimes))
+        .route("/system/java-env", get(system::get_java_env))
         .route("/system/dotnet-runtimes", get(system::get_dotnet_runtimes))
         .route("/system/dotnet-env", get(system::get_dotnet_env))
         .route("/system/steamcmd-status", get(steamcmd::steamcmd_status))
@@ -258,6 +260,18 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/github/releases", get(github::get_releases))
         .route("/admin/settings/github", get(github::get_github_settings))
         .route("/admin/settings/github", put(github::save_github_settings))
+        .layer(outbound_rate_limit.clone());
+
+    let curseforge_routes = Router::new()
+        .route("/curseforge/files", get(curseforge::get_files))
+        .route(
+            "/admin/settings/curseforge",
+            get(curseforge::get_curseforge_settings),
+        )
+        .route(
+            "/admin/settings/curseforge",
+            put(curseforge::save_curseforge_settings),
+        )
         .layer(outbound_rate_limit.clone());
 
     let ws_routes = Router::new().route("/ws/events", get(ws::global_events_handler));
@@ -282,5 +296,6 @@ pub fn router() -> Router<Arc<AppState>> {
         .merge(steamcmd_routes)
         .merge(smtp_alert_routes)
         .merge(github_routes)
+        .merge(curseforge_routes)
         .merge(ws_routes)
 }

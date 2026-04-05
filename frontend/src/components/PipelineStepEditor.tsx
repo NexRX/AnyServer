@@ -16,6 +16,8 @@ interface Props {
   onMoveDown?: () => void;
   defaultCollapsed?: boolean;
   parameterNames?: string[];
+  /** Full parameter definitions, used to filter by type for specific step actions */
+  parameters?: Array<{ name: string; param_type: string }>;
 }
 
 const PipelineStepEditor: Component<Props> = (props) => {
@@ -157,6 +159,7 @@ const PipelineStepEditor: Component<Props> = (props) => {
               action={props.step.action}
               onChange={handleActionChange}
               parameterNames={paramNames()}
+              parameters={props.parameters}
             />
           </div>
 

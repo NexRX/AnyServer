@@ -1,10 +1,11 @@
-import { type Component, createSignal, Show, For, onMount } from "solid-js";
-import { getJavaRuntimes } from "../api/client";
+import { type Component, createSignal, Show, For } from "solid-js";
+import { getJavaRuntimes, getJavaEnv } from "../api/client";
 import type { JavaRuntime } from "../types/bindings";
 
 export interface JavaRuntimeSelectorProps {
   currentBinary: string;
-  onSelect: (path: string) => void;
+  currentEnv: Record<string, string>;
+  onEnvChange: (envVars: Record<string, string>) => void;
 }
 
 const JavaRuntimeSelector: Component<JavaRuntimeSelectorProps> = (props) => {
@@ -13,6 +14,7 @@ const JavaRuntimeSelector: Component<JavaRuntimeSelectorProps> = (props) => {
   const [error, setError] = createSignal<string | null>(null);
   const [detected, setDetected] = createSignal(false);
   const [expanded, setExpanded] = createSignal(false);
+  const [applying, setApplying] = createSignal<string | null>(null);
 
   const detect = async () => {
     setLoading(true);
@@ -31,6 +33,25 @@ const JavaRuntimeSelector: Component<JavaRuntimeSelectorProps> = (props) => {
     }
   };
 
+  const applyRuntime = async (rt: JavaRuntime) => {
+    setApplying(rt.java_home);
+    setError(null);
+    try {
+      const envVars = await getJavaEnv(rt.java_home);
+      props.onEnvChange(envVars);
+    } catch (e: any) {
+      setError(
+        e.message || "Failed to generate environment variables for runtime",
+      );
+    } finally {
+      setApplying(null);
+    }
+  };
+
+  const clearJavaEnv = () => {
+    props.onEnvChange({ JAVA_HOME: "" });
+  };
+
   const formatRuntime = (rt: JavaRuntime): string => {
     const parts: string[] = [];
     parts.push(`Java ${rt.major_version}`);
@@ -47,13 +68,22 @@ const JavaRuntimeSelector: Component<JavaRuntimeSelectorProps> = (props) => {
   };
 
   const isSelected = (rt: JavaRuntime): boolean => {
-    const bin = props.currentBinary.trim();
-    return bin === rt.path;
+    const javaHome = props.currentEnv["JAVA_HOME"];
+    if (!javaHome) return false;
+    return javaHome === rt.java_home;
   };
 
   const isSystemDefault = (): boolean => {
-    const bin = props.currentBinary.trim();
-    return bin === "java";
+    const javaHome = props.currentEnv["JAVA_HOME"];
+    return !javaHome || javaHome.trim() === "";
+  };
+
+  const hasJavaHomeEnv = (): boolean => {
+    return !!props.currentEnv["JAVA_HOME"];
+  };
+
+  const currentJavaHome = (): string | undefined => {
+    return props.currentEnv["JAVA_HOME"];
   };
 
   return (
@@ -68,6 +98,7 @@ const JavaRuntimeSelector: Component<JavaRuntimeSelectorProps> = (props) => {
           display: "flex",
           "align-items": "center",
           gap: "0.5rem",
+          "flex-wrap": "wrap",
         }}
       >
         <button
@@ -129,7 +160,55 @@ const JavaRuntimeSelector: Component<JavaRuntimeSelectorProps> = (props) => {
             found
           </span>
         </Show>
+
+        <Show when={hasJavaHomeEnv()}>
+          <button
+            type="button"
+            class="btn btn-sm"
+            onClick={clearJavaEnv}
+            style={{
+              "font-size": "0.72rem",
+              padding: "0.2rem 0.5rem",
+              color: "var(--danger)",
+              "border-color": "var(--danger)",
+            }}
+            title="Remove JAVA_HOME and use system default"
+          >
+            ✕ Clear JAVA_HOME
+          </button>
+        </Show>
       </div>
+
+      {/* Show current JAVA_HOME if set */}
+      <Show when={hasJavaHomeEnv()}>
+        <div
+          style={{
+            "margin-top": "0.35rem",
+            padding: "0.35rem 0.6rem",
+            background: "var(--primary-bg)",
+            border: "1px solid var(--primary)",
+            "border-radius": "var(--radius-sm)",
+            "font-size": "0.75rem",
+            color: "var(--text)",
+            display: "flex",
+            "align-items": "center",
+            gap: "0.4rem",
+          }}
+        >
+          <span style={{ "font-weight": "600", color: "var(--primary)" }}>
+            JAVA_HOME
+          </span>
+          <code
+            style={{
+              "font-size": "0.72rem",
+              "font-family": "var(--mono)",
+              color: "var(--text-dim)",
+            }}
+          >
+            {currentJavaHome()}
+          </code>
+        </div>
+      </Show>
 
       <Show when={error()}>
         <div
@@ -156,9 +235,10 @@ const JavaRuntimeSelector: Component<JavaRuntimeSelectorProps> = (props) => {
             overflow: "hidden",
           }}
         >
+          {/* System Default option */}
           <button
             type="button"
-            onClick={() => props.onSelect("java")}
+            onClick={clearJavaEnv}
             style={{
               display: "flex",
               "align-items": "center",
@@ -203,7 +283,7 @@ const JavaRuntimeSelector: Component<JavaRuntimeSelectorProps> = (props) => {
                   "font-family": "var(--mono)",
                 }}
               >
-                java
+                No JAVA_HOME override — uses whichever java is on PATH
                 <Show when={runtimes().find((r) => r.is_default)}>
                   {" "}
                   → {runtimes().find((r) => r.is_default)!.path}
@@ -253,10 +333,12 @@ const JavaRuntimeSelector: Component<JavaRuntimeSelectorProps> = (props) => {
             <For each={runtimes()}>
               {(rt) => {
                 const selected = () => isSelected(rt);
+                const isApplying = () => applying() === rt.java_home;
                 return (
                   <button
                     type="button"
-                    onClick={() => props.onSelect(rt.path)}
+                    onClick={() => applyRuntime(rt)}
+                    disabled={isApplying()}
                     style={{
                       display: "flex",
                       "align-items": "center",
@@ -269,10 +351,11 @@ const JavaRuntimeSelector: Component<JavaRuntimeSelectorProps> = (props) => {
                         ? "var(--primary-bg)"
                         : "var(--bg-input)",
                       color: "var(--text)",
-                      cursor: "pointer",
+                      cursor: isApplying() ? "wait" : "pointer",
                       "font-size": "0.82rem",
                       "text-align": "left",
                       transition: "background var(--transition)",
+                      opacity: isApplying() ? "0.7" : "1",
                     }}
                     onMouseEnter={(e) => {
                       if (!selected())
@@ -291,9 +374,16 @@ const JavaRuntimeSelector: Component<JavaRuntimeSelectorProps> = (props) => {
                         color: selected()
                           ? "var(--primary)"
                           : "var(--text-dim)",
+                        "margin-top": "0.15rem",
                       }}
                     >
-                      {selected() ? "●" : "○"}
+                      {isApplying() ? (
+                        <span class="btn-spinner" />
+                      ) : selected() ? (
+                        "●"
+                      ) : (
+                        "○"
+                      )}
                     </span>
                     <div style={{ flex: "1", "min-width": "0" }}>
                       <div
@@ -330,6 +420,21 @@ const JavaRuntimeSelector: Component<JavaRuntimeSelectorProps> = (props) => {
                             DEFAULT
                           </span>
                         </Show>
+                        <Show when={selected()}>
+                          <span
+                            style={{
+                              "font-size": "0.65rem",
+                              padding: "0.1rem 0.35rem",
+                              "border-radius": "3px",
+                              background: "var(--primary-bg)",
+                              color: "var(--primary)",
+                              "font-weight": "600",
+                              "letter-spacing": "0.02em",
+                            }}
+                          >
+                            SELECTED
+                          </span>
+                        </Show>
                       </div>
                       <div
                         style={{
@@ -353,7 +458,7 @@ const JavaRuntimeSelector: Component<JavaRuntimeSelectorProps> = (props) => {
                             "font-family": "var(--mono)",
                           }}
                         >
-                          {rt.path}
+                          {rt.java_home}
                         </code>
                       </div>
                     </div>
@@ -384,9 +489,14 @@ const JavaRuntimeSelector: Component<JavaRuntimeSelectorProps> = (props) => {
             "line-height": "1.4",
           }}
         >
-          Selecting a runtime sets the full path as the binary. Use "System
-          Default" to let the server use whichever{" "}
-          <code style={{ "font-size": "0.68rem" }}>java</code> is on PATH.
+          Selecting a runtime sets{" "}
+          <code style={{ "font-size": "0.68rem" }}>JAVA_HOME</code> in the
+          server's environment variables. The backend automatically prepends{" "}
+          <code style={{ "font-size": "0.68rem" }}>$JAVA_HOME/bin</code> to{" "}
+          <code style={{ "font-size": "0.68rem" }}>PATH</code> at launch, so
+          shell scripts and wrappers that call{" "}
+          <code style={{ "font-size": "0.68rem" }}>java</code> will use the
+          selected runtime.
         </div>
       </Show>
     </div>

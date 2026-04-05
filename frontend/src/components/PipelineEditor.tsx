@@ -9,6 +9,8 @@ interface Props {
   onChange: (steps: PipelineStep[]) => void;
   parameterNames?: string[];
   defaultCollapsed?: boolean;
+  /** Full parameter definitions, used to filter by type for specific step actions */
+  parameters?: Array<{ name: string; param_type: string }>;
 }
 
 function defaultAction(): StepAction {
@@ -220,6 +222,7 @@ const PipelineEditor: Component<Props> = (props) => {
                     }
                     defaultCollapsed={true}
                     parameterNames={props.parameterNames}
+                    parameters={props.parameters}
                   />
                 )}
               </Index>

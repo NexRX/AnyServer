@@ -71,6 +71,13 @@ export type { FetchOptionsResponse } from "./generated/FetchOptionsResponse";
 export type { OptionsFrom } from "./generated/OptionsFrom";
 export type { OptionsSortOrder } from "./generated/OptionsSortOrder";
 
+// ─── CurseForge Integration ───
+export type { CurseForgeFileOption } from "./generated/CurseForgeFileOption";
+export type { CurseForgeFilesResponse } from "./generated/CurseForgeFilesResponse";
+export type { CurseForgeSettings } from "./generated/CurseForgeSettings";
+export type { CurseForgeSettingsResponse } from "./generated/CurseForgeSettingsResponse";
+export type { SaveCurseForgeSettingsRequest } from "./generated/SaveCurseForgeSettingsRequest";
+
 // ─── Pipeline / Install / Update ───
 export type { ArchiveFormat } from "./generated/ArchiveFormat";
 export type { ConfigParameter } from "./generated/ConfigParameter";

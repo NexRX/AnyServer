@@ -19,6 +19,9 @@ pub enum ConfigParameterType {
     /// A GitHub release tag selector. Requires `github_repo` to be set.
     /// Presents a searchable dropdown of release tags from the specified repo.
     GithubReleaseTag,
+    /// A CurseForge file version selector. Requires `curseforge_project_id` to be set.
+    /// Presents a searchable dropdown of file versions from the specified CurseForge project.
+    CurseForgeFileVersion,
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, TS)]
@@ -51,6 +54,11 @@ pub struct ConfigParameter {
     /// Required when `param_type` is `GithubReleaseTag`.
     #[serde(default)]
     pub github_repo: Option<String>,
+    /// CurseForge project (mod) ID for `curseforge_file_version` parameter type.
+    /// Required when `param_type` is `CurseForgeFileVersion`.
+    #[serde(default)]
+    #[ts(type = "number | null")]
+    pub curseforge_project_id: Option<u32>,
 }
 
 // ─── Dynamic Options (Tier 1: API Fetch + Mapping) ───
@@ -376,6 +384,26 @@ pub enum StepAction {
         /// Destination directory to save the downloaded asset.
         destination: String,
         /// Optional filename to save as. If not specified, uses the original asset name.
+        #[serde(default)]
+        filename: Option<String>,
+        /// Whether to mark the downloaded file as executable (Unix only).
+        #[serde(default)]
+        executable: bool,
+    },
+    /// Download a server pack from CurseForge.
+    ///
+    /// References a `CurseForgeFileVersion` parameter to get the selected
+    /// file ID, resolves the server pack (following `serverPackFileId` if
+    /// the selected file is a client pack), and downloads the result.
+    DownloadCurseForgeFile {
+        /// The name of a `CurseForgeFileVersion` parameter.
+        /// Must reference a parameter of type `CurseForgeFileVersion` in the
+        /// template's parameter list.
+        file_param: String,
+        /// Destination directory to save the downloaded file.
+        destination: String,
+        /// Optional filename override. If not specified, uses the server
+        /// pack's original filename from CurseForge.
         #[serde(default)]
         filename: Option<String>,
         /// Whether to mark the downloaded file as executable (Unix only).

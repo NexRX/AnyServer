@@ -18,6 +18,7 @@
 //! For each candidate binary we run `<path> -version` (stderr), parse the
 //! version string and runtime name, then deduplicate by canonical path.
 
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -66,6 +67,22 @@ pub fn detect_java_runtimes() -> Vec<JavaRuntime> {
     });
 
     runtimes
+}
+
+/// Generate recommended environment variables for a specific Java runtime.
+///
+/// Given a `java_home` directory (e.g. `/usr/lib/jvm/java-21`), returns a
+/// `HashMap` with:
+/// - `JAVA_HOME` — the JDK/JRE root directory
+///
+/// The caller should merge these with the server's existing env config.
+/// At spawn time the backend automatically prepends `$JAVA_HOME/bin` to
+/// `PATH`, so shell scripts that invoke bare `java` will pick up the
+/// selected runtime without manual PATH edits.
+pub fn generate_java_env_vars(java_home: &str) -> HashMap<String, String> {
+    let mut env = HashMap::new();
+    env.insert("JAVA_HOME".to_string(), java_home.to_string());
+    env
 }
 
 // ─── Internal helpers ────────────────────────────────────────────────────
@@ -236,8 +253,25 @@ fn probe_java(java_path: &Path) -> Option<JavaRuntime> {
     // path, but the caller handles dedup with that separately.
     let display_path = java_path.to_string_lossy().to_string();
 
+    // Derive JAVA_HOME by stripping the trailing `/bin/java` (or `\bin\java`
+    // on Windows) from the binary path.  If the path doesn't end with that
+    // suffix (unusual, but possible), fall back to the parent of the parent.
+    let java_home = java_path
+        .parent() // .../bin
+        .and_then(|bin_dir| {
+            if bin_dir.file_name().map(|n| n == "bin").unwrap_or(false) {
+                bin_dir.parent() // .../jdk-21
+            } else {
+                None
+            }
+        })
+        .unwrap_or(java_path)
+        .to_string_lossy()
+        .to_string();
+
     Some(JavaRuntime {
         path: display_path,
+        java_home,
         version,
         major_version: major,
         runtime_name,
@@ -423,6 +457,100 @@ mod tests {
                 "expected exactly 1 default runtime, got {}: {:?}",
                 defaults.len(),
                 defaults.iter().map(|r| &r.path).collect::<Vec<_>>(),
+            );
+        }
+    }
+
+    #[test]
+    fn test_generate_java_env_vars() {
+        let env = generate_java_env_vars("/usr/lib/jvm/java-21");
+        assert_eq!(env.get("JAVA_HOME").unwrap(), "/usr/lib/jvm/java-21");
+        assert_eq!(env.len(), 1, "should only contain JAVA_HOME");
+    }
+
+    #[test]
+    fn test_generate_java_env_vars_nix_store() {
+        let env = generate_java_env_vars("/nix/store/abc123-openjdk-21.0.2");
+        assert_eq!(
+            env.get("JAVA_HOME").unwrap(),
+            "/nix/store/abc123-openjdk-21.0.2"
+        );
+    }
+
+    #[test]
+    fn test_java_home_derived_from_bin_java() {
+        // Simulate what probe_java does: given a path ending in /bin/java,
+        // java_home should strip the trailing /bin/java.
+        let java_path = Path::new("/usr/lib/jvm/java-21/bin/java");
+        let java_home = java_path
+            .parent()
+            .and_then(|bin_dir| {
+                if bin_dir.file_name().map(|n| n == "bin").unwrap_or(false) {
+                    bin_dir.parent()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(java_path)
+            .to_string_lossy()
+            .to_string();
+        assert_eq!(java_home, "/usr/lib/jvm/java-21");
+    }
+
+    #[test]
+    fn test_java_home_derived_nix_store_path() {
+        let java_path = Path::new("/nix/store/abc123-zulu-ca-jdk-21.0.8/bin/java");
+        let java_home = java_path
+            .parent()
+            .and_then(|bin_dir| {
+                if bin_dir.file_name().map(|n| n == "bin").unwrap_or(false) {
+                    bin_dir.parent()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(java_path)
+            .to_string_lossy()
+            .to_string();
+        assert_eq!(java_home, "/nix/store/abc123-zulu-ca-jdk-21.0.8");
+    }
+
+    #[test]
+    fn test_java_home_fallback_when_not_in_bin() {
+        // If the java binary isn't inside a `bin/` directory, fall back
+        // to the path itself (unusual but shouldn't panic).
+        let java_path = Path::new("/opt/custom-java/java");
+        let java_home = java_path
+            .parent()
+            .and_then(|bin_dir| {
+                if bin_dir.file_name().map(|n| n == "bin").unwrap_or(false) {
+                    bin_dir.parent()
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(java_path)
+            .to_string_lossy()
+            .to_string();
+        // Falls back to the original path since parent is not "bin"
+        assert_eq!(java_home, "/opt/custom-java/java");
+    }
+
+    #[test]
+    fn test_detect_live_includes_java_home() {
+        let runtimes = detect_java_runtimes();
+        for rt in &runtimes {
+            // Every runtime should have a non-empty java_home
+            assert!(
+                !rt.java_home.is_empty(),
+                "java_home should not be empty for runtime at {}",
+                rt.path,
+            );
+            // java_home should NOT end with /bin/java
+            assert!(
+                !rt.java_home.ends_with("/bin/java"),
+                "java_home should not end with /bin/java, got: {}",
+                rt.java_home,
             );
         }
     }

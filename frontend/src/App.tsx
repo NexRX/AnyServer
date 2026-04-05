@@ -91,7 +91,12 @@ const App: Component<ParentProps> = (props) => {
     }
 
     if (!auth.isSetupComplete()) return "setup";
-    if (!auth.isLoggedIn()) return "login";
+    if (!auth.isLoggedIn()) {
+      // Include the reason so the login page can show an informative banner
+      // (e.g. "Your session has expired") instead of a generic redirect.
+      const reason = auth.deauthReason();
+      return reason ? `login?reason=${reason}` : "login";
+    }
     return false;
   };
 

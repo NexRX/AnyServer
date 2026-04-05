@@ -4,8 +4,8 @@ import {
   createContext,
   useContext,
   createSignal,
-  createResource,
   onMount,
+  onCleanup,
   batch,
 } from "solid-js";
 import type { UserPublic, AppSettings } from "../types/bindings";
@@ -17,8 +17,12 @@ import {
   isLoggedIn as checkToken,
   initializeAuth,
   logout as apiLogout,
+  startSessionManager,
+  onAuthStateChange,
+  isTokenExpiringSoon,
   RateLimitError,
 } from "../api/client";
+import type { AuthEvent } from "../api/client";
 
 export interface AuthState {
   user: () => UserPublic | null;
@@ -29,6 +33,8 @@ export interface AuthState {
   isSetupComplete: () => boolean;
   isRegistrationEnabled: () => boolean;
   isRunCommandsAllowed: () => boolean;
+  /** Non-null when the user was deauthenticated for a specific reason. */
+  deauthReason: () => "session_expired" | null;
   refresh: () => Promise<void>;
   logout: () => void;
   setUser: (user: UserPublic) => void;
@@ -41,6 +47,11 @@ export const AuthProvider: Component<ParentProps> = (props) => {
   const [user, setUser] = createSignal<UserPublic | null>(null);
   const [settings, setSettings] = createSignal<AppSettings | null>(null);
   const [loading, setLoading] = createSignal(true);
+  const [deauthReason, setDeauthReason] = createSignal<
+    "session_expired" | null
+  >(null);
+
+  // ── Settings fetch with retry ──────────────────────────────────────────
 
   const fetchSettingsWithRetry = async (
     retries = 3,
@@ -57,9 +68,6 @@ export const AuthProvider: Component<ParentProps> = (props) => {
           err,
         );
         if (attempt < retries) {
-          // If the failure was a rate-limit error, use its Retry-After
-          // duration instead of the fixed backoff so we don't hammer the
-          // server while it's telling us to wait.
           const delay =
             err instanceof RateLimitError
               ? err.retryAfterSecs * 1000
@@ -70,6 +78,8 @@ export const AuthProvider: Component<ParentProps> = (props) => {
     }
     return false;
   };
+
+  // ── Core refresh logic ─────────────────────────────────────────────────
 
   const refresh = async () => {
     setLoading(true);
@@ -85,20 +95,13 @@ export const AuthProvider: Component<ParentProps> = (props) => {
       if (checkToken()) {
         try {
           const me = await getMe();
-          // Batch both updates so that dependent computations (navbar
-          // visibility, shouldRedirect, etc.) only see the final consistent
-          // state rather than an intermediate where user is set but settings
-          // haven't been overwritten yet, or vice-versa.
           batch(() => {
             setUser(me.user);
             setSettings(me.settings);
+            setDeauthReason(null);
           });
         } catch (err: unknown) {
           console.warn("[Auth] Token validation failed, logging out:", err);
-          // Batch the "logged-out" state transition so the navbar and
-          // redirect logic see user=null and token=cleared atomically.
-          // Without this, setUser(null) fires first causing the navbar
-          // to disappear before shouldRedirect navigates to /login.
           batch(() => {
             clearToken();
             setUser(null);
@@ -114,6 +117,8 @@ export const AuthProvider: Component<ParentProps> = (props) => {
     }
   };
 
+  // ── Logout ─────────────────────────────────────────────────────────────
+
   const logout = async () => {
     try {
       await apiLogout();
@@ -123,12 +128,138 @@ export const AuthProvider: Component<ParentProps> = (props) => {
     batch(() => {
       clearToken();
       setUser(null);
+      setDeauthReason(null);
     });
   };
 
+  // ── Cross-tab auth event handler ───────────────────────────────────────
+  //
+  // `onAuthStateChange` fires when:
+  //   - Another tab refreshed the access token ("token_refreshed")
+  //   - Another tab explicitly logged out ("logged_out")
+  //   - Any tab's refresh attempt failed irrecoverably ("session_expired")
+
+  const handleAuthEvent = (event: AuthEvent) => {
+    switch (event) {
+      case "token_refreshed": {
+        // Another tab got a fresh token. If we don't currently have a
+        // user (e.g. this tab was on /login), try to hydrate.
+        if (user() === null && checkToken()) {
+          // Re-validate the session in the background — don't block.
+          getMe()
+            .then((me) => {
+              batch(() => {
+                setUser(me.user);
+                setSettings(me.settings);
+                setDeauthReason(null);
+              });
+            })
+            .catch(() => {
+              // Token might be for a different session or already
+              // invalid — just ignore; the proactive refresh or next
+              // API call will sort it out.
+            });
+        }
+        break;
+      }
+
+      case "logged_out": {
+        // Another tab logged out — mirror locally.
+        batch(() => {
+          setUser(null);
+          setDeauthReason(null);
+        });
+        break;
+      }
+
+      case "session_expired": {
+        // Session is irrecoverably dead across all tabs.
+        batch(() => {
+          setUser(null);
+          setDeauthReason("session_expired");
+        });
+        break;
+      }
+    }
+  };
+
+  // ── Visibility-based re-validation ─────────────────────────────────────
+  //
+  // When a tab comes back from the background, the proactive refresh timer
+  // in core.ts handles token freshness. Here we handle the higher-level
+  // concern: if the token was cleared (by another tab) while we were hidden,
+  // update the user signal to trigger the redirect to /login.
+  //
+  // We also re-validate the user profile if the tab was hidden for a long
+  // time, since the user's role/permissions may have changed.
+
+  let lastVisibleAt = Date.now();
+
+  const handleVisibilityChange = () => {
+    if (document.visibilityState !== "visible") return;
+
+    const now = Date.now();
+    const hiddenDuration = now - lastVisibleAt;
+    lastVisibleAt = now;
+
+    const token = getToken();
+
+    if (!token) {
+      // Token was cleared while we were hidden
+      if (user() !== null) {
+        batch(() => {
+          setUser(null);
+          // Don't set deauthReason here — the cross-tab event handler
+          // already set it if this was a session_expired scenario.
+        });
+      }
+      return;
+    }
+
+    // If the tab was hidden for more than 5 minutes, re-validate the
+    // user profile to pick up role/permission changes.
+    if (hiddenDuration > 5 * 60 * 1000 && user() !== null) {
+      getMe()
+        .then((me) => {
+          batch(() => {
+            setUser(me.user);
+            setSettings(me.settings);
+          });
+        })
+        .catch(() => {
+          // If this fails, the 401 handler in core.ts will take care of
+          // refreshing or deauthing. No need to act here.
+        });
+    }
+  };
+
+  // ── Lifecycle ──────────────────────────────────────────────────────────
+
   onMount(() => {
+    // Start the session manager (cross-tab sync, proactive refresh,
+    // visibility-aware token management in core.ts). Idempotent.
+    startSessionManager();
+
+    // Subscribe to cross-tab auth events.
+    const unsubscribe = onAuthStateChange(handleAuthEvent);
+    onCleanup(unsubscribe);
+
+    // Listen for tab visibility changes.
+    if (typeof document !== "undefined") {
+      document.addEventListener("visibilitychange", handleVisibilityChange);
+      onCleanup(() => {
+        document.removeEventListener(
+          "visibilitychange",
+          handleVisibilityChange,
+        );
+      });
+    }
+
+    // Perform the initial auth check.
     refresh();
   });
+
+  // ── Context value ──────────────────────────────────────────────────────
 
   const state: AuthState = {
     user,
@@ -139,9 +270,13 @@ export const AuthProvider: Component<ParentProps> = (props) => {
     isSetupComplete: () => settings()?.setup_complete ?? false,
     isRegistrationEnabled: () => settings()?.registration_enabled ?? false,
     isRunCommandsAllowed: () => settings()?.allow_run_commands ?? false,
+    deauthReason,
     refresh,
     logout,
-    setUser,
+    setUser: (u: UserPublic) => {
+      setUser(u);
+      setDeauthReason(null);
+    },
     setSettings,
   };
 

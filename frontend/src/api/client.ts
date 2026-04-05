@@ -8,7 +8,11 @@ export {
   rateLimitRetryAt,
   emitRateLimitEvent,
   initializeAuth,
+  startSessionManager,
+  onAuthStateChange,
+  isTokenExpiringSoon,
 } from "./core";
+export type { AuthEvent } from "./core";
 export {
   getAuthStatus,
   setup,

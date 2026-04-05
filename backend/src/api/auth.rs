@@ -455,7 +455,7 @@ pub async fn logout(
     cookie.set_http_only(true);
     cookie.set_secure(cookie_secure());
     cookie.set_same_site(SameSite::Lax);
-    cookie.set_path("/api/auth/refresh");
+    cookie.set_path("/api/auth");
     cookie.set_max_age(time::Duration::seconds(-1)); // Expire immediately
 
     let response = (StatusCode::OK, Json(serde_json::json!({"success": true})));
@@ -783,7 +783,7 @@ fn create_response_with_refresh_cookie<T: serde::Serialize>(
     cookie.set_http_only(true);
     cookie.set_secure(cookie_secure());
     cookie.set_same_site(SameSite::Lax);
-    cookie.set_path("/api/auth/refresh");
+    cookie.set_path("/api/auth");
     cookie.set_max_age(time::Duration::days(7));
 
     ([(header::SET_COOKIE, cookie.to_string())], Json(body)).into_response()

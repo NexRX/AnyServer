@@ -174,6 +174,12 @@ const ServerDetail: Component = () => {
     number | null
   >(null);
   const [installDialogOpen, setInstallDialogOpen] = createSignal(false);
+  // Sticky override for installed state — survives WS reconnections.
+  // Set when we observe a completed install/uninstall via WebSocket,
+  // cleared once HTTP-fetched data confirms the same value.
+  const [installedOverride, setInstalledOverride] = createSignal<
+    boolean | null
+  >(null);
   const [updateDialogOpen, setUpdateDialogOpen] = createSignal(false);
   const [saveTemplateOpen, setSaveTemplateOpen] = createSignal(false);
   const [saveTemplateSubmitting, setSaveTemplateSubmitting] =
@@ -204,28 +210,41 @@ const ServerDetail: Component = () => {
       (progress.status === "completed" || progress.status === "failed")
     ) {
       setPipelineTriggeredAt(null);
+      // Sticky override: remember the installed outcome so it survives
+      // WebSocket reconnections (which clear phaseProgress to null).
+      if (progress.status === "completed") {
+        if (progress.phase === "install") setInstalledOverride(true);
+        if (progress.phase === "uninstall") setInstalledOverride(false);
+      }
       refetch();
     }
   });
 
-  // ── Polling fallback: refetch while WS is disconnected during a pipeline ──
+  // Clear the sticky override once the HTTP-fetched data agrees with it,
+  // so we don't permanently shadow the real server state.
+  createEffect(() => {
+    const d = data();
+    const override = installedOverride();
+    if (d && override !== null && d.server.installed === override) {
+      setInstalledOverride(null);
+    }
+  });
+
+  // ── Polling fallback: keep HTTP data fresh during pipeline operations ──
   // If the WebSocket drops mid-pipeline, the frontend never receives the
   // PhaseProgress "completed" event — so effectiveInstalled() stays stale and
-  // the refetch above never fires.  This effect polls every 2 s whenever the
-  // WS is not connected AND the last HTTP-fetched data shows a running
-  // pipeline (or we recently triggered one).  The poll stops as soon as the
-  // WS reconnects (which triggers its own refetch) or the pipeline finishes.
+  // the refetch above never fires.  This effect polls every 2 s whenever we
+  // recently triggered a pipeline and the HTTP-fetched data hasn't yet
+  // confirmed completion.  Polling continues even after WS reconnects,
+  // because the WS can deliver StatusChange events (updating the status
+  // badge) before the async HTTP refetch from onReconnect finishes — leaving
+  // data()?.server.installed stale.
   {
     let pollTimer: ReturnType<typeof setInterval> | null = null;
 
     const startPoll = () => {
       if (pollTimer) return;
       pollTimer = setInterval(async () => {
-        // Stop polling if WS came back or component is unmounting.
-        if (sc.isConnected()) {
-          stopPoll();
-          return;
-        }
         // Call the API directly instead of refetch() — refetch() doesn't
         // return a promise that resolves when data() is updated, so reading
         // data() afterwards may still see stale values.  Using getServer()
@@ -237,6 +256,12 @@ const ServerDetail: Component = () => {
           const pp = freshData.phase_progress;
           if (!pp || pp.status === "completed" || pp.status === "failed") {
             setPipelineTriggeredAt(null);
+            // Update the sticky installed override from HTTP-polled data
+            // in case the WS never delivered the PhaseProgress event.
+            if (pp?.status === "completed") {
+              if (pp.phase === "install") setInstalledOverride(true);
+              if (pp.phase === "uninstall") setInstalledOverride(false);
+            }
           }
         } catch {
           // Network error — keep polling, next tick will retry.
@@ -263,7 +288,7 @@ const ServerDetail: Component = () => {
       const recentlyTriggered =
         triggeredAt != null && Date.now() - triggeredAt < 60_000;
 
-      if (!connected && (phaseRunning || recentlyTriggered)) {
+      if (phaseRunning || recentlyTriggered) {
         startPoll();
       } else {
         stopPoll();
@@ -274,15 +299,22 @@ const ServerDetail: Component = () => {
   }
 
   // ── Derived: effective installed state ──
+  // Priority order:
+  // 1. Sticky override (survives WS reconnections, cleared when HTTP catches up)
+  // 2. Live WS phase progress (may be transiently null during reconnect)
+  // 3. HTTP-fetched server.installed (baseline truth)
   const effectiveInstalled = (): boolean => {
-    const d = data();
-    const baseInstalled = d?.server.installed ?? false;
+    // Sticky override from a recently completed phase — this survives WS
+    // reconnections so we never briefly flash the wrong state.
+    const override = installedOverride();
+    if (override !== null) return override;
+
     const pp = sc.phaseProgress();
     if (pp?.status === "completed") {
       if (pp.phase === "install") return true;
       if (pp.phase === "uninstall") return false;
     }
-    return baseInstalled;
+    return data()?.server.installed ?? false;
   };
 
   // ── Derived: config helpers ──
@@ -355,13 +387,28 @@ const ServerDetail: Component = () => {
 
   // ── Action handlers ──
 
-  const handleStart = () => {
+  const handleStart = async () => {
     const d = data();
     if (
       d &&
       !effectiveInstalled() &&
       (d.server.config.install_steps?.length ?? 0) > 0
     ) {
+      // The reactive installed state may be stale (e.g. after a WS
+      // reconnection that cleared phaseProgress before the HTTP refetch
+      // completed).  Do a quick API round-trip to confirm the server
+      // really isn't installed before showing the dialog.
+      try {
+        const fresh = await getServer(params.id);
+        mutate(fresh);
+        if (fresh.server.installed) {
+          // Server IS installed — proceed to start directly.
+          doControl("start", "Start", () => startServer(params.id));
+          return;
+        }
+      } catch {
+        // API error — fall through and use whatever local state we have.
+      }
       setInstallDialogOpen(true);
       return;
     }
@@ -455,6 +502,8 @@ const ServerDetail: Component = () => {
     )
       return;
     setActiveAction("reset");
+    // Clear the sticky installed override — reset makes the server uninstalled.
+    setInstalledOverride(null);
     toast.dismissError();
     toast.dismissSuccess();
     try {

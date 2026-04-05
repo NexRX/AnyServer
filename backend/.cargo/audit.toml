@@ -1,0 +1,19 @@
+# Cargo audit configuration
+# See: https://docs.rs/cargo-audit/latest/cargo_audit/config/
+
+[advisories]
+# RUSTSEC-2023-0071: rsa 0.9.10 — Marvin Attack (potential key recovery via timing sidechannels)
+#
+# Severity: 5.9 (medium)
+# Status:   No fixed upgrade is available as of 2025.
+#
+# This is a transitive dependency pulled in by:
+#   - russh 0.46 / russh-keys 0.46 (SFTP server)
+#   - sqlx-mysql 0.8 (database driver)
+#
+# Neither upstream crate has released a version that drops or replaces the
+# vulnerable `rsa` crate.  Upgrading russh from 0.46 → 0.60 is a large
+# breaking-API change tracked separately.  In practice the exposure is low
+# because AnyServer does not perform RSA decryption on untrusted ciphertext
+# in a way that is susceptible to the Marvin timing oracle.
+ignore = ["RUSTSEC-2023-0071"]

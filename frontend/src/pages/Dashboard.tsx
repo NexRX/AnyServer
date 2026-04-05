@@ -20,6 +20,9 @@ import Loader from "../components/Loader";
 import ConnectionBanner from "../components/ConnectionBanner";
 import { useGlobalEvents } from "../hooks/useGlobalEvents";
 
+const AUTO_REFRESH_KEY = "anyserver:dashboard:auto-refresh";
+const AUTO_REFRESH_INTERVAL_MS = 60_000;
+
 /** Extract a single string from a search-param value (which may be string | string[] | undefined). */
 const param = (v: string | string[] | undefined): string | undefined =>
   Array.isArray(v) ? v[0] : v;
@@ -87,6 +90,51 @@ const Dashboard: Component = () => {
     fetchUpdateStatus();
   });
 
+  // ── Auto-refresh toggle (persisted in localStorage) ──
+  const [autoRefresh, setAutoRefresh] = createSignal(
+    localStorage.getItem(AUTO_REFRESH_KEY) === "true",
+  );
+
+  let autoRefreshInterval: ReturnType<typeof setInterval> | null = null;
+
+  const clearAutoRefreshInterval = () => {
+    if (autoRefreshInterval) {
+      clearInterval(autoRefreshInterval);
+      autoRefreshInterval = null;
+    }
+  };
+
+  createEffect(() => {
+    clearAutoRefreshInterval();
+    if (autoRefresh()) {
+      autoRefreshInterval = setInterval(
+        () => refetch(),
+        AUTO_REFRESH_INTERVAL_MS,
+      );
+    }
+  });
+
+  onCleanup(clearAutoRefreshInterval);
+
+  const toggleAutoRefresh = () => {
+    const next = !autoRefresh();
+    setAutoRefresh(next);
+    localStorage.setItem(AUTO_REFRESH_KEY, String(next));
+  };
+
+  // ── Manual refresh ──
+  const [refreshing, setRefreshing] = createSignal(false);
+
+  const handleRefresh = async () => {
+    if (refreshing()) return;
+    setRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   // ── Global events WebSocket ──
   // Owns the WebSocket lifecycle. Provides real-time status updates for all
   // servers and handles reconnection automatically. Replaces ~100 lines of
@@ -134,9 +182,43 @@ const Dashboard: Component = () => {
 
       <div class="page-header">
         <h1>Servers</h1>
-        <A href="/create" class="btn btn-primary">
-          + New Server
-        </A>
+        <div class="page-header-actions">
+          <div class="refresh-btn-group">
+            <button
+              class="btn btn-sm refresh-btn-left"
+              onClick={handleRefresh}
+              disabled={refreshing()}
+              title="Refresh server list"
+            >
+              <span
+                classList={{ "refresh-icon-spin": refreshing() }}
+                style={{ display: "inline-block" }}
+              >
+                ↻
+              </span>{" "}
+              Refresh
+            </button>
+            <button
+              class={`btn btn-sm refresh-btn-right ${autoRefresh() ? "btn-auto-refresh-on" : ""}`}
+              onClick={toggleAutoRefresh}
+              title={
+                autoRefresh()
+                  ? "Auto-refresh is on (every 60s) — click to disable"
+                  : "Enable auto-refresh (every 60s)"
+              }
+            >
+              <span
+                class={
+                  autoRefresh() ? "auto-refresh-dot active" : "auto-refresh-dot"
+                }
+              />
+              Auto
+            </button>
+          </div>
+          <A href="/create" class="btn btn-primary btn-sm">
+            + New Server
+          </A>
+        </div>
       </div>
 
       <div

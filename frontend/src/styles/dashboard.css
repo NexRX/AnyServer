@@ -1,3 +1,100 @@
+/* ─── Page Header Actions ─── */
+
+.page-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+/* ─── Fused Refresh Button Group ─── */
+
+.refresh-btn-group {
+    display: inline-flex;
+    align-items: stretch;
+    border-radius: var(--radius-sm);
+    /* Shared outline wrapping both buttons */
+    box-shadow: 0 0 0 1px var(--border);
+}
+
+.refresh-btn-group .btn {
+    border: none;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.refresh-btn-group .btn:hover {
+    box-shadow: none;
+    transform: none;
+}
+
+.refresh-btn-group .btn:active {
+    transform: none;
+}
+
+.refresh-btn-group .refresh-btn-left {
+    border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+}
+
+.refresh-btn-group .refresh-btn-right {
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    border-left: 1px solid var(--border);
+}
+
+.refresh-btn-group .btn:focus-visible {
+    z-index: 1;
+}
+
+@keyframes refreshSpin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.refresh-icon-spin {
+    animation: refreshSpin 0.6s linear infinite;
+}
+
+.auto-refresh-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    transition:
+        background var(--transition),
+        box-shadow var(--transition);
+}
+
+.auto-refresh-dot.active {
+    background: var(--success);
+    box-shadow: 0 0 6px rgba(34, 197, 94, 0.5);
+    animation: dotPulse 2s ease-in-out infinite;
+}
+
+.btn-auto-refresh-on {
+    background: rgba(34, 197, 94, 0.1);
+    color: var(--success);
+}
+
+.btn-auto-refresh-on:hover {
+    background: rgba(34, 197, 94, 0.18);
+}
+
+/* Green tint on the shared outline when auto is on */
+.refresh-btn-group:has(.btn-auto-refresh-on) {
+    box-shadow: 0 0 0 1px var(--success);
+}
+
+.refresh-btn-group:has(.btn-auto-refresh-on) .refresh-btn-right {
+    border-left-color: rgba(34, 197, 94, 0.3);
+}
+
+/* ─── Server Grid ─── */
+
 .server-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
@@ -440,4 +537,3 @@
     margin-top: auto;
     padding-top: 0.5rem;
 }
-

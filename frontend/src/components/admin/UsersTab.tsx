@@ -4,7 +4,6 @@ import {
   createResource,
   For,
   Show,
-  onCleanup,
 } from "solid-js";
 import Loader from "../Loader";
 import { formatDate } from "../../utils/format";
@@ -17,9 +16,6 @@ const UsersTab: Component = () => {
   const [users, { refetch }] = createResource(listUsers);
   const [actionError, setActionError] = createSignal<string | null>(null);
   const [actionLoading, setActionLoading] = createSignal<string | null>(null);
-
-  const interval = setInterval(() => refetch(), 10000);
-  onCleanup(() => clearInterval(interval));
 
   const handleRoleChange = async (user: UserPublic, newRole: Role) => {
     if (user.id === auth.user()?.id) {

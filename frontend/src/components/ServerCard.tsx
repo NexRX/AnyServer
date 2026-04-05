@@ -1,4 +1,10 @@
-import { type Component, createSignal, onCleanup, Show } from "solid-js";
+import {
+  type Component,
+  createSignal,
+  createEffect,
+  onCleanup,
+  Show,
+} from "solid-js";
 import { A } from "@solidjs/router";
 import { startServer, stopServer, getServerStats } from "../api/client";
 import { formatBytes } from "../utils/format";
@@ -80,9 +86,43 @@ const ServerCard: Component<Props> = (props) => {
     }
   };
 
+  // Only poll resource stats for servers in an active state.
+  // Stopped/crashed servers don't need constant stats fetching.
+  const isActiveStatus = () => {
+    const s = props.server.runtime.status;
+    return (
+      s === "running" ||
+      s === "starting" ||
+      s === "stopping" ||
+      s === "installing" ||
+      s === "updating" ||
+      s === "uninstalling"
+    );
+  };
+
+  let statsInterval: ReturnType<typeof setInterval> | null = null;
+
+  // Fetch once on mount so even stopped servers show disk usage.
   fetchStats();
-  const statsInterval = setInterval(fetchStats, 5000);
-  onCleanup(() => clearInterval(statsInterval));
+
+  createEffect(() => {
+    // Clear any previous interval when status changes.
+    if (statsInterval) {
+      clearInterval(statsInterval);
+      statsInterval = null;
+    }
+
+    if (isActiveStatus()) {
+      statsInterval = setInterval(fetchStats, 5000);
+    }
+  });
+
+  onCleanup(() => {
+    if (statsInterval) {
+      clearInterval(statsInterval);
+      statsInterval = null;
+    }
+  });
 
   const handleStart = async (e: MouseEvent) => {
     e.preventDefault();

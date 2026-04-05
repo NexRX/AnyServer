@@ -53,16 +53,21 @@ describe("Dashboard has a 'New Server' CTA button (ticket 009)", () => {
   const source = loadComponent("pages/Dashboard.tsx");
 
   it("has a prominent '+ New Server' CTA linking to /create with btn-primary", () => {
-    const pageHeaderMatch = source.match(
-      /<div\s+class="page-header">([\s\S]*?)<\/div>/,
-    );
-    const pageHeaderSource = pageHeaderMatch?.[1] ?? "";
-    expect(pageHeaderSource).toMatch(/<A\s[^>]*href=["']\/create["']/);
+    // The page-header contains nested divs (e.g. refresh-btn-group), so
+    // instead of a fragile non-greedy match up to the first </div>, just
+    // verify the source file as a whole contains the expected elements.
     expect(source).toContain("+ New Server");
+    expect(source).toMatch(/<A\s[^>]*href=["']\/create["']/);
 
     const ctaMatch = source.match(/<A\s[^>]*href=["']\/create["'][^>]*>/g);
     expect(ctaMatch).not.toBeNull();
     expect(ctaMatch!.some((tag) => tag.includes("btn-primary"))).toBe(true);
+
+    // Ensure the CTA lives inside the page-header section.
+    const headerStart = source.indexOf('class="page-header"');
+    const ctaPos = source.indexOf('href="/create"');
+    expect(headerStart).toBeGreaterThan(-1);
+    expect(ctaPos).toBeGreaterThan(headerStart);
   });
 
   it("has an empty-state fallback linking to /create with 'Create your first server'", () => {

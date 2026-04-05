@@ -826,7 +826,10 @@ async fn test_pid_file_lifecycle_with_isolation_enabled() {
     let server_id: uuid::Uuid = server_id_str.parse().unwrap();
 
     // No PID file before start.
-    assert!(anyserver::server_management::process::read_pid_file(&app.state.data_dir, &server_id).is_none());
+    assert!(
+        anyserver::server_management::process::read_pid_file(&app.state.data_dir, &server_id)
+            .is_none()
+    );
 
     start_and_wait(&app, &token, &server_id_str).await;
 
@@ -845,7 +848,8 @@ async fn test_pid_file_lifecycle_with_isolation_enabled() {
 
     // PID file should be cleaned up.
     assert!(
-        anyserver::server_management::process::read_pid_file(&app.state.data_dir, &server_id).is_none(),
+        anyserver::server_management::process::read_pid_file(&app.state.data_dir, &server_id)
+            .is_none(),
         "PID file should be removed after kill"
     );
 }

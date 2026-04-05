@@ -103,7 +103,7 @@ pub struct AlertConfig {
     pub recipients: Vec<String>,
 
     /// Base URL for the AnyServer instance, used to generate direct links
-    /// in email bodies (e.g. "https://my.server.com:3001").
+    /// in email bodies (e.g. `https://my.server.com:3001`).
     #[serde(default)]
     pub base_url: Option<String>,
 

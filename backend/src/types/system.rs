@@ -245,7 +245,7 @@ pub struct GithubSettings {
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 #[ts(export, export_to = "../../frontend/src/types/generated/")]
 pub struct CurseForgeSettings {
-    /// CurseForge API key (from https://console.curseforge.com/).
+    /// CurseForge API key (from <https://console.curseforge.com/>).
     /// Stored encrypted in the database.
     #[serde(default)]
     pub api_key: Option<String>,

@@ -19,7 +19,7 @@ pub struct SearchUsersQuery {
     pub q: String,
 }
 
-/// GET /api/users/search?q=<query>
+/// `GET /api/users/search?q=<query>`
 ///
 /// Lightweight user search accessible to **any authenticated user**.
 /// Returns up to 20 matching users (id + username + role only).

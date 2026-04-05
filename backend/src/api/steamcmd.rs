@@ -27,7 +27,7 @@ pub async fn steamcmd_status(_auth: AuthUser) -> Result<Json<SteamCmdStatusRespo
     Ok(Json(SteamCmdStatusResponse { status }))
 }
 
-/// GET /api/steamcmd/validate-app?app_id=<id>
+/// `GET /api/steamcmd/validate-app?app_id=<id>`
 ///
 /// Validates a Steam application ID by querying the Steam store API.
 /// On success returns the application's display name.  On failure returns

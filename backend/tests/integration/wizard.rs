@@ -482,7 +482,9 @@ async fn test_create_server_with_install_steps() {
 
     assert_eq!(status, StatusCode::OK, "body: {:?}", body);
 
-    let install_steps = body["server"]["config"]["install_steps"].as_array().unwrap();
+    let install_steps = body["server"]["config"]["install_steps"]
+        .as_array()
+        .unwrap();
     assert_eq!(install_steps.len(), 3);
 
     // Verify step 1
@@ -715,9 +717,27 @@ async fn test_create_full_wizard_server_with_all_phases() {
     assert_eq!(body["server"]["config"]["stop_timeout_secs"], 30);
     assert_eq!(body["server"]["config"]["sftp_username"], "mc_user");
 
-    assert_eq!(body["server"]["config"]["parameters"].as_array().unwrap().len(), 3);
-    assert_eq!(body["server"]["config"]["install_steps"].as_array().unwrap().len(), 2);
-    assert_eq!(body["server"]["config"]["update_steps"].as_array().unwrap().len(), 1);
+    assert_eq!(
+        body["server"]["config"]["parameters"]
+            .as_array()
+            .unwrap()
+            .len(),
+        3
+    );
+    assert_eq!(
+        body["server"]["config"]["install_steps"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    assert_eq!(
+        body["server"]["config"]["update_steps"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1
+    );
 
     assert_eq!(body["server"]["parameter_values"]["port"], "25577");
     assert_eq!(body["server"]["parameter_values"]["version"], "1.20.4");
@@ -881,8 +901,14 @@ async fn test_update_server_parameters_are_revalidated() {
         .await;
 
     assert_eq!(update_status2, StatusCode::OK, "body: {:?}", update_body2);
-    assert_eq!(update_body2["server"]["config"]["name"], "Updateable Server v2");
-    assert_eq!(update_body2["server"]["parameter_values"]["version"], "2.0.0");
+    assert_eq!(
+        update_body2["server"]["config"]["name"],
+        "Updateable Server v2"
+    );
+    assert_eq!(
+        update_body2["server"]["parameter_values"]["version"],
+        "2.0.0"
+    );
 }
 
 #[tokio::test]
@@ -1103,7 +1129,9 @@ async fn test_create_server_with_all_step_action_types() {
 
     assert_eq!(status, StatusCode::OK, "body: {:?}", body);
 
-    let steps = body["server"]["config"]["install_steps"].as_array().unwrap();
+    let steps = body["server"]["config"]["install_steps"]
+        .as_array()
+        .unwrap();
     assert_eq!(steps.len(), 12);
 
     // Verify action types round-trip
@@ -1207,9 +1235,27 @@ async fn test_create_server_with_no_parameters_no_steps_works() {
         .await;
 
     assert_eq!(status, StatusCode::OK, "body: {:?}", body);
-    assert_eq!(body["server"]["config"]["parameters"].as_array().unwrap().len(), 0);
-    assert_eq!(body["server"]["config"]["install_steps"].as_array().unwrap().len(), 0);
-    assert_eq!(body["server"]["config"]["update_steps"].as_array().unwrap().len(), 0);
+    assert_eq!(
+        body["server"]["config"]["parameters"]
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
+    assert_eq!(
+        body["server"]["config"]["install_steps"]
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
+    assert_eq!(
+        body["server"]["config"]["update_steps"]
+            .as_array()
+            .unwrap()
+            .len(),
+        0
+    );
 }
 
 #[tokio::test]
@@ -1308,7 +1354,13 @@ async fn test_create_server_optional_param_can_be_omitted() {
 
     // Optional params with no values should be accepted
     assert_eq!(status, StatusCode::OK, "body: {:?}", body);
-    assert_eq!(body["server"]["config"]["parameters"].as_array().unwrap().len(), 2);
+    assert_eq!(
+        body["server"]["config"]["parameters"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
 }
 
 #[tokio::test]
@@ -1442,7 +1494,9 @@ async fn test_create_server_edit_file_operations_round_trip() {
         .await;
 
     assert_eq!(status, StatusCode::OK, "body: {:?}", body);
-    let steps = body["server"]["config"]["install_steps"].as_array().unwrap();
+    let steps = body["server"]["config"]["install_steps"]
+        .as_array()
+        .unwrap();
     assert_eq!(steps.len(), 7);
 
     // Verify each edit_file operation type round-trips

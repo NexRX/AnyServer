@@ -3087,6 +3087,22 @@ mod with_frontend {
         let sleep_bin = resolve_binary("sleep");
         let echo = resolve_binary("echo");
 
+        // Enable run_command steps (disabled by default for new installations)
+        let (settings_status, _) = app
+            .put(
+                "/api/auth/settings",
+                Some(&token),
+                json!({
+                    "registration_enabled": false,
+                    "allow_run_commands": true,
+                    "run_command_sandbox": "auto",
+                    "run_command_default_timeout_secs": 300,
+                    "run_command_use_namespaces": true
+                }),
+            )
+            .await;
+        assert_eq!(settings_status, StatusCode::OK);
+
         // Create server with a slow install step
         let (_, body) = app
             .post(

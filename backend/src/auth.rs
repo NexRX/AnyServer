@@ -263,7 +263,7 @@ pub struct AuthUser {
 
 impl AuthUser {
     /// Returns `true` if the JWT claims admin role. This is a snapshot from
-    /// token-issuance time and may be stale — use [`require_fresh_admin`]
+    /// token-issuance time and may be stale — use [`Self::require_fresh_admin`]
     /// for security-critical operations.
     pub fn is_admin(&self) -> bool {
         self.role == Role::Admin
@@ -394,7 +394,7 @@ impl AuthUser {
         }
     }
 
-    /// Like [`require_level`], but re-validates admin role against the DB
+    /// Like [`Self::require_level`], but re-validates admin role against the DB
     /// when the permission came from the global admin shortcut. Use for
     /// destructive or irreversible operations.
     pub async fn require_level_verified(

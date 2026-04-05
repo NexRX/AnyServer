@@ -56,13 +56,7 @@ pub async fn get_integration_status(
             .unwrap_or(false);
 
     // SMTP: must have a saved configuration
-    let smtp_configured = state
-        .db
-        .get_smtp_config()
-        .await
-        .ok()
-        .flatten()
-        .is_some();
+    let smtp_configured = state.db.get_smtp_config().await.ok().flatten().is_some();
 
     Ok(Json(IntegrationStatus {
         curseforge_configured,

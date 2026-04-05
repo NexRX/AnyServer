@@ -1,7 +1,7 @@
 //! CurseForge API integration for fetching project files and downloading server packs.
 //!
 //! All requests require a CurseForge API key sent via the `x-api-key` header.
-//! Keys can be generated at https://console.curseforge.com/.
+//! Keys can be generated at <https://console.curseforge.com/>.
 
 use crate::error::AppError;
 use serde::Deserialize;

@@ -105,7 +105,7 @@ const CACHE_TTL_SECS: u64 = 60;
 static STEAMCMD_CACHE: OnceLock<parking_lot::Mutex<(SteamCmdStatus, Instant)>> = OnceLock::new();
 
 /// Return a cached [`SteamCmdStatus`], refreshing at most once every
-/// [`CACHE_TTL_SECS`] seconds.
+/// `CACHE_TTL_SECS` seconds.
 ///
 /// This is a synchronous function (PATH lookup only) and is cheap even
 /// without caching, but the cache avoids redundant filesystem scans when

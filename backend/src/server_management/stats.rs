@@ -365,6 +365,7 @@ fn is_pid_alive(pid: u32) -> bool {
 
 /// Public wrapper for [`dir_size`] so the API handler can compute disk
 /// usage on the fly when no cached stats are available yet.
+#[allow(rustdoc::private_intra_doc_links)]
 pub fn dir_size_public(path: &Path) -> u64 {
     dir_size(path)
 }

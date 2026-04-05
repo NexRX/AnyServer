@@ -15,8 +15,8 @@ use std::path::Path;
 
 use crate::types::IsolationConfig;
 
-/// Pre-computed sandbox config. All heap allocation happens in [`new`];
-/// [`apply`] uses only async-signal-safe syscalls (safe for `pre_exec`).
+/// Pre-computed sandbox config. All heap allocation happens in [`Self::new`];
+/// [`Self::apply`] uses only async-signal-safe syscalls (safe for `pre_exec`).
 pub struct PreExecSandbox {
     enabled: bool,
 

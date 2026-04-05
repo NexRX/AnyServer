@@ -29,6 +29,7 @@ mod wizard;
 
 mod builtin_templates;
 mod capabilities;
+#[cfg(not(feature = "bundle-frontend"))]
 mod cors;
 mod csrf_refresh;
 mod fetch_options;
@@ -37,6 +38,7 @@ mod invite_codes;
 mod orphan_processes;
 mod pipeline;
 mod reconciliation;
+#[cfg(not(feature = "bundle-frontend"))]
 mod root_route_removal;
 mod sandbox;
 mod server_list_batch;

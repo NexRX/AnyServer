@@ -239,7 +239,7 @@ mod bundled {
     /// Extract a value from HTML by finding text between a prefix and a suffix.
     /// For example, to extract `foo.js` from `src="/foo.js"`, use
     /// `extract_attribute(html, "src=\"/", "\"")` which returns `Some("/foo.js")`.
-    fn extract_attribute<'a>(html: &'a str, after: &str, until: &str) -> Option<String> {
+    fn extract_attribute(html: &str, after: &str, until: &str) -> Option<String> {
         let start = html.find(after)? + after.len();
         let rest = &html[start..];
         let end = rest.find(until)?;

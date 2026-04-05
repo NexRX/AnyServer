@@ -8,7 +8,7 @@
 //! This module is deliberately free of `AppState` so all core logic can
 //! be unit-tested in isolation.
 //!
-//! JSON path navigation is provided by [`crate::json_path::json_navigate`].
+//! JSON path navigation is provided by [`crate::utils::json_path::json_navigate`].
 
 use std::collections::HashMap;
 use std::time::Duration;

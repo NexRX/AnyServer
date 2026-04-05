@@ -193,10 +193,10 @@ async fn test_login_sets_refresh_cookie_with_correct_attributes() {
                 cookie_str
             );
 
-            // Verify Path is scoped to /api/auth/refresh
+            // Verify Path is scoped to /api/auth (broad enough for logout & sessions)
             assert!(
-                cookie_str.contains("Path=/api/auth/refresh"),
-                "Refresh cookie Path should be /api/auth/refresh. Got: {}",
+                cookie_str.contains("Path=/api/auth"),
+                "Refresh cookie Path should be /api/auth. Got: {}",
                 cookie_str
             );
 
@@ -235,7 +235,7 @@ async fn test_logout_clears_cookie_with_matching_path() {
             // The clear cookie must use the same Path as the set cookie,
             // otherwise the browser won't clear it.
             assert!(
-                cookie_str.contains("Path=/api/auth/refresh"),
+                cookie_str.contains("Path=/api/auth"),
                 "Logout cookie Path should match the refresh endpoint path. Got: {}",
                 cookie_str
             );

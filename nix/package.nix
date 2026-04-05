@@ -51,11 +51,11 @@ in
 
 rustPlatform.buildRustPackage {
   pname = "anyserver";
-  version = "0.1.0";
+  version = "0.2.0";
 
   src = backendSrc;
 
-  cargoHash = "sha256-6M8bn2jTFEqNRPGoMuWDawPxmQtAM6RETUROG87lX/U=";
+  cargoHash = "sha256-Uv1G5MWZZg7WxGRWpxOu1hndo7UnR6IkA6TR1/AdGvc=";
 
   nativeBuildInputs = [
     pkg-config

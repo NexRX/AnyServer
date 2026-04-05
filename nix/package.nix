@@ -18,7 +18,7 @@ let
   # Build the frontend first as a separate derivation
   frontend = stdenv.mkDerivation {
     pname = "anyserver-frontend";
-    version = "0.2.2";
+    version = "0.2.3";
 
     src = frontendSrc;
 
@@ -51,11 +51,11 @@ in
 
 rustPlatform.buildRustPackage {
   pname = "anyserver";
-  version = "0.2.2";
+  version = "0.2.3";
 
   src = backendSrc;
 
-  cargoHash = "sha256-6UMtHBR5/UgjkjALndUO8u2oyJJQ9T5G8dnoRjzoSG0=";
+  cargoHash = "sha256-U4D9mDOKTQdFTDvaBQJiHcfWETCOFbhjtI42/eItkhA=";
 
   nativeBuildInputs = [
     pkg-config

@@ -334,7 +334,20 @@ else
 
     FAKE_HASH="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
     NIX_LOG="$(mktemp)"
-    trap 'rm -f "$NIX_LOG"' EXIT
+    NIX_PACKAGE_BACKUP="$(mktemp)"
+    cp "$NIX_PACKAGE" "$NIX_PACKAGE_BACKUP"
+
+    # On any exit (error, signal, die, etc.) restore package.nix from backup
+    # so a failed hash probe never leaves FAKE_HASH in the repo.
+    cleanup() {
+        local exit_code=$?
+        if [[ $exit_code -ne 0 && -f "$NIX_PACKAGE_BACKUP" ]]; then
+            warn "Restoring nix/package.nix from backup after failure"
+            cp "$NIX_PACKAGE_BACKUP" "$NIX_PACKAGE"
+        fi
+        rm -f "$NIX_LOG" "$NIX_PACKAGE_BACKUP"
+    }
+    trap cleanup EXIT
 
     # Find the line numbers for each hash so we can target sed precisely
     PNPM_LINE="$(grep -n 'hash = "sha256-' "$NIX_PACKAGE" | head -1 | cut -d: -f1)"
@@ -378,10 +391,21 @@ else
         grep 'got:' "$1" | head -1 | grep -o 'sha256-[A-Za-z0-9+/]*=*' || true
     }
 
-    # Helper: run nix build and capture stderr to the log file
+    # Helper: stage only the files this script manages so unrelated changes
+    # are never pulled into the flake evaluation.
+    git_stage_managed() {
+        local files=("$NIX_PACKAGE")
+        $BUMP_BACKEND  && files+=("$CARGO_TOML" "$REPO_DIR/backend/Cargo.lock")
+        $BUMP_FRONTEND && files+=("$PACKAGE_JSON" "$REPO_DIR/frontend/pnpm-lock.yaml")
+        (cd "$REPO_DIR" && git add -- "${files[@]}")
+    }
+
+    # Helper: run nix build and capture stderr to the log file.
+    # -L (print-build-logs) ensures hash-mismatch diagnostics appear on stderr
+    # even when the failing derivation is an inner (non-top-level) build.
     nix_build_probe() {
-        (cd "$REPO_DIR" && git add -A)
-        (cd "$REPO_DIR" && nix build --no-link 2>"$NIX_LOG") || true
+        git_stage_managed
+        (cd "$REPO_DIR" && nix build -L --no-link 2>"$NIX_LOG") || true
     }
 
     # ── 6a. pnpmDeps hash ──
@@ -465,8 +489,8 @@ else
     fi
     echo ""
 
-    (cd "$REPO_DIR" && git add -A)
-    if (cd "$REPO_DIR" && nix build --no-link 2>"$NIX_LOG"); then
+    git_stage_managed
+    if (cd "$REPO_DIR" && nix build -L --no-link 2>"$NIX_LOG"); then
         ok "nix build succeeded!"
     else
         err "nix build FAILED after hash updates. Build log:"
@@ -545,7 +569,10 @@ if $SKIP_COMMIT; then
     echo "    git tag v$NEW_VERSION"
     echo ""
 else
-    (cd "$REPO_DIR" && git add -A)
+    COMMIT_FILES_LIST=("$NIX_PACKAGE")
+    $BUMP_BACKEND  && COMMIT_FILES_LIST+=("$CARGO_TOML" "$REPO_DIR/backend/Cargo.lock")
+    $BUMP_FRONTEND && COMMIT_FILES_LIST+=("$PACKAGE_JSON" "$REPO_DIR/frontend/pnpm-lock.yaml")
+    (cd "$REPO_DIR" && git add -- "${COMMIT_FILES_LIST[@]}")
 
     STAGED="$(cd "$REPO_DIR" && git diff --cached --name-only)"
     if [[ -z "$STAGED" ]]; then

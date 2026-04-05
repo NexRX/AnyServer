@@ -5,7 +5,7 @@
  */
 export type CurseForgeSettings = { 
 /**
- * CurseForge API key (from https://console.curseforge.com/).
+ * CurseForge API key (from <https://console.curseforge.com/>).
  * Stored encrypted in the database.
  */
 api_key: string | null, };

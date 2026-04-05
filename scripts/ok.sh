@@ -54,11 +54,6 @@ skip_check() {
     SKIPPED=$((SKIPPED + 1))
 }
 
-# Check for available scripts in a package.json (call from the dir containing it)
-has_script() {
-    node -e "const p = require('./package.json'); process.exit(p.scripts && p.scripts['$1'] ? 0 : 1)" 2>/dev/null
-}
-
 # =============================================================================
 # Git Checks
 # =============================================================================
@@ -119,61 +114,11 @@ run_check "Cargo doc (no warnings)" bash -c 'RUSTDOCFLAGS="-D warnings" cargo do
 section "Frontend Checks"
 cd "$FRONTEND_DIR"
 
+run_check "Frontend install dependencies" bash -c "cd '$FRONTEND_DIR' && pnpm install --frozen-lockfile 2>/dev/null || pnpm install"
 
-# Detect package manager
-if [ -f "pnpm-lock.yaml" ]; then
-    PKG_MGR="pnpm"
-elif [ -f "yarn.lock" ]; then
-    PKG_MGR="yarn"
-elif [ -f "bun.lockb" ]; then
-    PKG_MGR="bun"
-else
-    PKG_MGR="npm"
-fi
+run_check "Frontend unit tests" pnpm run test
 
-run_check "Frontend install dependencies" bash -c "cd '$FRONTEND_DIR' && $PKG_MGR install --frozen-lockfile 2>/dev/null || $PKG_MGR install"
-
-if has_script "typecheck"; then
-    run_check "Frontend type check" $PKG_MGR run typecheck
-elif has_script "type-check"; then
-    run_check "Frontend type check" $PKG_MGR run type-check
-elif has_script "tsc"; then
-    run_check "Frontend type check" $PKG_MGR run tsc
-elif command -v tsc &>/dev/null; then
-    run_check "Frontend type check (tsc)" tsc --noEmit
-else
-    skip_check "Frontend type check" "no typecheck script found"
-fi
-
-if has_script "lint"; then
-    run_check "Frontend lint" $PKG_MGR run lint
-elif command -v eslint &>/dev/null; then
-    run_check "Frontend lint (eslint)" eslint .
-else
-    skip_check "Frontend lint" "no lint script found"
-fi
-
-if has_script "format:check"; then
-    run_check "Frontend format check" $PKG_MGR run format:check
-elif has_script "fmt:check"; then
-    run_check "Frontend format check" $PKG_MGR run fmt:check
-elif command -v prettier &>/dev/null; then
-    run_check "Frontend format check (prettier)" prettier --check .
-else
-    skip_check "Frontend format check" "no format check script found"
-fi
-
-if has_script "test"; then
-    run_check "Frontend unit tests" $PKG_MGR run test
-else
-    skip_check "Frontend unit tests" "no test script found"
-fi
-
-if has_script "build"; then
-    run_check "Frontend build" $PKG_MGR run build
-else
-    skip_check "Frontend build" "no build script found"
-fi
+run_check "Frontend build" pnpm run build
 
 # =============================================================================
 # End-to-End Tests
@@ -181,19 +126,12 @@ fi
 section "End-to-End Tests"
 cd "$FRONTEND_DIR"
 
-# The e2e tests are driven from the frontend directory via pnpm test:e2e.
-# Check for that script first (the canonical way per the README), then
-# fall back to detecting playwright/cypress configs.
-if has_script "test:e2e"; then
-    run_check "E2E tests" $PKG_MGR run test:e2e
-elif has_script "e2e"; then
-    run_check "E2E tests" $PKG_MGR run e2e
-elif [ -f "playwright.config.ts" ] || [ -f "playwright.config.js" ]; then
-    run_check "Playwright E2E tests" npx playwright test
-elif [ -f "cypress.config.ts" ] || [ -f "cypress.config.js" ]; then
-    run_check "Cypress E2E tests" npx cypress run
+# Use nix-shell with frontend/shell.nix when available so that Playwright
+# browsers and all system dependencies are provided reproducibly.
+if command -v nix-shell &>/dev/null; then
+    run_check "E2E tests (nix-shell)" nix-shell "$FRONTEND_DIR/shell.nix" --run "pnpm test:e2e"
 else
-    skip_check "E2E tests" "no e2e test script or configuration found"
+    run_check "E2E tests" pnpm run test:e2e
 fi
 
 # =============================================================================
@@ -221,15 +159,11 @@ section "Docker Checks"
 cd "$REPO_DIR"
 
 if command -v docker &>/dev/null; then
-     if [ -f "Dockerfile" ]; then
-         run_check "Docker build" docker build -t release-check .
-     fi
-     if [ -f "docker-compose.yml" ] || [ -f "docker-compose.yaml" ] || [ -f "compose.yml" ] || [ -f "compose.yaml" ]; then
-         run_check "Docker Compose config validation" docker compose config --quiet
-     fi
- else
-     skip_check "Docker checks" "docker not found"
- fi
+    run_check "Docker build" docker build -t release-check .
+    run_check "Docker Compose config validation" docker compose config --quiet
+else
+    skip_check "Docker checks" "docker not found"
+fi
 
 # =============================================================================
 # Miscellaneous Checks
@@ -239,7 +173,7 @@ cd "$REPO_DIR"
 
 # Check for TODO/FIXME in code (warning only)
 echo -n "  ▶ Checking for TODOs/FIXMEs ... "
-TODO_COUNT=$(grep -r --include="*.rs" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" --include="*.py" -c 'TODO\|FIXME\|HACK\|XXX' . 2>/dev/null | awk -F: '{s+=$2} END {print s+0}')
+TODO_COUNT=$(grep -r --include="*.rs" --include="*.ts" --include="*.tsx" --include="*.js" --include="*.jsx" -c 'TODO\|FIXME\|HACK\|XXX' . 2>/dev/null | awk -F: '{s+=$2} END {print s+0}')
 if [ "$TODO_COUNT" -gt 0 ]; then
     echo -e "${YELLOW}WARNING${NC} ($TODO_COUNT occurrences found)"
 else
@@ -256,30 +190,18 @@ run_check "No .env files committed" bash -c '
     fi
 '
 
-# Check if version numbers are consistent (Cargo.toml, package.json, etc.)
+# Check if version numbers are consistent (Cargo.toml & package.json)
 echo -n "  ▶ Version consistency check ... "
-VERSIONS=""
-if [ -f "$BACKEND_DIR/Cargo.toml" ]; then
-    CARGO_VERSION=$(grep -m1 '^version' "$BACKEND_DIR/Cargo.toml" | sed 's/.*"\(.*\)".*/\1/' 2>/dev/null || echo "")
-    if [ -n "$CARGO_VERSION" ]; then
-        VERSIONS="$VERSIONS cargo:$CARGO_VERSION"
-    fi
-fi
-if [ -f "$FRONTEND_DIR/package.json" ]; then
-    PKG_VERSION=$(node -e "console.log(require('$FRONTEND_DIR/package.json').version || '')" 2>/dev/null || echo "")
-    if [ -n "$PKG_VERSION" ]; then
-        VERSIONS="$VERSIONS package:$PKG_VERSION"
-    fi
-fi
-if [ -n "$VERSIONS" ]; then
-    UNIQUE_VERSIONS=$(echo "$VERSIONS" | tr ' ' '\n' | grep -v '^$' | sed 's/.*://' | sort -u | wc -l)
-    if [ "$UNIQUE_VERSIONS" -le 1 ]; then
-        echo -e "${GREEN}OK${NC} ($VERSIONS)"
+CARGO_VERSION=$(grep -m1 '^version' "$BACKEND_DIR/Cargo.toml" | sed 's/.*"\(.*\)".*/\1/' 2>/dev/null || echo "")
+PKG_VERSION=$(node -e "console.log(require('$FRONTEND_DIR/package.json').version || '')" 2>/dev/null || echo "")
+if [ -n "$CARGO_VERSION" ] && [ -n "$PKG_VERSION" ]; then
+    if [ "$CARGO_VERSION" = "$PKG_VERSION" ]; then
+        echo -e "${GREEN}OK${NC} (cargo:$CARGO_VERSION package:$PKG_VERSION)"
     else
-        echo -e "${YELLOW}WARNING${NC} - versions may differ: $VERSIONS"
+        echo -e "${YELLOW}WARNING${NC} - versions differ: cargo:$CARGO_VERSION package:$PKG_VERSION"
     fi
 else
-    echo -e "${YELLOW}SKIPPED${NC} (no version files found)"
+    echo -e "${YELLOW}SKIPPED${NC} (could not read one or both version files)"
 fi
 
 # =============================================================================

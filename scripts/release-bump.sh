@@ -8,11 +8,15 @@ set -euo pipefail
 # `nix build` / `nix flake check` keep working after the change.
 #
 # Usage:
-#   ./scripts/release-bump.sh patch          # 0.2.0 → 0.2.1
-#   ./scripts/release-bump.sh minor          # 0.2.0 → 0.3.0
-#   ./scripts/release-bump.sh major          # 0.2.0 → 1.0.0
-#   ./scripts/release-bump.sh 1.2.3          # explicit version
-#   ./scripts/release-bump.sh patch --dry-run # preview only
+#   ./scripts/release-bump.sh patch                # 0.2.0 → 0.2.1
+#   ./scripts/release-bump.sh minor                # 0.2.0 → 0.3.0
+#   ./scripts/release-bump.sh major                # 0.2.0 → 1.0.0
+#   ./scripts/release-bump.sh 1.2.3                # explicit version
+#   ./scripts/release-bump.sh patch --dry-run      # preview only
+#   ./scripts/release-bump.sh patch --only backend   # bump backend only
+#   ./scripts/release-bump.sh minor --only frontend  # bump frontend only
+#   ./scripts/release-bump.sh patch --git tag         # commit + tag
+#   ./scripts/release-bump.sh patch --git push        # commit + tag + push
 #
 # Run from the repository root:  ./scripts/release-bump.sh <bump|version>
 # =============================================================================
@@ -33,6 +37,10 @@ NIX_PACKAGE="$REPO_DIR/nix/package.nix"
 DRY_RUN=false
 SKIP_NIX=false
 SKIP_COMMIT=false
+BUMP_BACKEND=true
+BUMP_FRONTEND=true
+ONLY_SCOPE=""
+GIT_ACTION=""
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -57,6 +65,8 @@ Arguments:
   X.Y.Z           Set an explicit version  (must be valid semver)
 
 Options:
+  --only <scope>  Only bump "frontend" or "backend" (default: both)
+  --git <action>  "tag" to commit + tag, "push" to commit + tag + push
   --dry-run       Show what would change without modifying files
   --skip-nix      Skip Nix hash recomputation (version-only bump)
   --skip-commit   Do not create a git commit at the end
@@ -74,6 +84,32 @@ while [[ $# -gt 0 ]]; do
         --dry-run)    DRY_RUN=true;    shift ;;
         --skip-nix)   SKIP_NIX=true;   shift ;;
         --skip-commit) SKIP_COMMIT=true; shift ;;
+        --only)
+            [[ -n "${2:-}" ]] || die "--only requires an argument: frontend or backend"
+            case "$2" in
+                frontend)
+                    BUMP_BACKEND=false
+                    ONLY_SCOPE="frontend"
+                    ;;
+                backend)
+                    BUMP_FRONTEND=false
+                    ONLY_SCOPE="backend"
+                    ;;
+                *)
+                    die "--only must be 'frontend' or 'backend' (got '$2')"
+                    ;;
+            esac
+            shift 2
+            ;;
+        --git)
+            [[ -n "${2:-}" ]] || die "--git requires an argument: tag or push"
+            case "$2" in
+                tag)  GIT_ACTION="tag"  ;;
+                push) GIT_ACTION="push" ;;
+                *)    die "--git must be 'tag' or 'push' (got '$2')" ;;
+            esac
+            shift 2
+            ;;
         -h|--help)    usage ;;
         -*)           die "Unknown option: $1" ;;
         *)
@@ -124,6 +160,9 @@ fi
 
 echo ""
 echo -e "${BOLD}Version bump: ${RED}$CURRENT_VERSION${NC} → ${GREEN}$NEW_VERSION${NC}"
+if [[ -n "$ONLY_SCOPE" ]]; then
+    echo -e "${BOLD}Scope:        ${CYAN}$ONLY_SCOPE only${NC}"
+fi
 echo ""
 
 if $DRY_RUN; then
@@ -135,11 +174,15 @@ fi
 
 step "Checking prerequisites"
 
-[[ -f "$CARGO_TOML" ]]   || die "Not found: $CARGO_TOML"
-[[ -f "$PACKAGE_JSON" ]]  || die "Not found: $PACKAGE_JSON"
+if $BUMP_BACKEND; then
+    [[ -f "$CARGO_TOML" ]]   || die "Not found: $CARGO_TOML"
+fi
+if $BUMP_FRONTEND; then
+    [[ -f "$PACKAGE_JSON" ]]  || die "Not found: $PACKAGE_JSON"
+fi
 [[ -f "$NIX_PACKAGE" ]]   || die "Not found: $NIX_PACKAGE"
 
-ok "All version files exist"
+ok "All required version files exist"
 
 if ! $SKIP_NIX; then
     if ! command -v nix &>/dev/null; then
@@ -150,49 +193,76 @@ if ! $SKIP_NIX; then
     fi
 fi
 
-command -v cargo &>/dev/null || die "cargo is required but not found"
-ok "cargo is available"
-
-command -v node &>/dev/null || die "node is required but not found"
-ok "node is available"
-
-# ── Step 1: Bump version in Cargo.toml ────────────────────────────────────────
-
-step "Step 1/6 — Bump backend/Cargo.toml"
-
-if $DRY_RUN; then
-    info "Would replace version = \"$CURRENT_VERSION\" → \"$NEW_VERSION\" in Cargo.toml"
-else
-    sed -i "0,/^version = \"$CURRENT_VERSION\"/s//version = \"$NEW_VERSION\"/" "$CARGO_TOML"
-
-    VERIFY="$(read_current_version)"
-    [[ "$VERIFY" == "$NEW_VERSION" ]] || die "Cargo.toml version update failed (got '$VERIFY')"
-    ok "backend/Cargo.toml → $NEW_VERSION"
+if $BUMP_BACKEND; then
+    command -v cargo &>/dev/null || die "cargo is required but not found"
+    ok "cargo is available"
 fi
 
-# ── Step 2: Bump version in package.json ──────────────────────────────────────
-
-step "Step 2/6 — Bump frontend/package.json"
-
-if $DRY_RUN; then
-    info "Would replace \"version\": \"$CURRENT_VERSION\" → \"$NEW_VERSION\" in package.json"
-else
-    node -e "
-        const fs = require('fs');
-        const path = '${PACKAGE_JSON}';
-        const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
-        pkg.version = '${NEW_VERSION}';
-        fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');
-    "
-
-    PKG_VER="$(node -e "console.log(require('$PACKAGE_JSON').version)")"
-    [[ "$PKG_VER" == "$NEW_VERSION" ]] || die "package.json version update failed (got '$PKG_VER')"
-    ok "frontend/package.json → $NEW_VERSION"
+if $BUMP_FRONTEND; then
+    command -v node &>/dev/null || die "node is required but not found"
+    ok "node is available"
 fi
 
-# ── Step 3: Bump version strings in nix/package.nix ──────────────────────────
+# ── Compute step counts based on scope ────────────────────────────────────────
+# Steps: [backend Cargo.toml] [frontend package.json] [nix versions] [Cargo.lock] [pnpm-lock] [nix hashes]
+TOTAL_STEPS=0
+if $BUMP_BACKEND;  then TOTAL_STEPS=$((TOTAL_STEPS + 1)); fi  # Cargo.toml
+if $BUMP_FRONTEND; then TOTAL_STEPS=$((TOTAL_STEPS + 1)); fi  # package.json
+TOTAL_STEPS=$((TOTAL_STEPS + 1))                               # nix version strings
+if $BUMP_BACKEND;  then TOTAL_STEPS=$((TOTAL_STEPS + 1)); fi  # Cargo.lock
+if $BUMP_FRONTEND; then TOTAL_STEPS=$((TOTAL_STEPS + 1)); fi  # pnpm-lock
+TOTAL_STEPS=$((TOTAL_STEPS + 1))                               # nix hashes
+CURRENT_STEP=0
+next_step() { CURRENT_STEP=$((CURRENT_STEP + 1)); }
 
-step "Step 3/6 — Bump nix/package.nix version strings"
+# ── Step: Bump version in Cargo.toml ──────────────────────────────────────────
+
+if $BUMP_BACKEND; then
+    next_step
+    step "Step $CURRENT_STEP/$TOTAL_STEPS — Bump backend/Cargo.toml"
+
+    if $DRY_RUN; then
+        info "Would replace version = \"$CURRENT_VERSION\" → \"$NEW_VERSION\" in Cargo.toml"
+    else
+        sed -i "0,/^version = \"$CURRENT_VERSION\"/s//version = \"$NEW_VERSION\"/" "$CARGO_TOML"
+
+        VERIFY="$(read_current_version)"
+        [[ "$VERIFY" == "$NEW_VERSION" ]] || die "Cargo.toml version update failed (got '$VERIFY')"
+        ok "backend/Cargo.toml → $NEW_VERSION"
+    fi
+else
+    info "Skipping backend/Cargo.toml (--only frontend)"
+fi
+
+# ── Step: Bump version in package.json ────────────────────────────────────────
+
+if $BUMP_FRONTEND; then
+    next_step
+    step "Step $CURRENT_STEP/$TOTAL_STEPS — Bump frontend/package.json"
+
+    if $DRY_RUN; then
+        info "Would replace \"version\": \"$CURRENT_VERSION\" → \"$NEW_VERSION\" in package.json"
+    else
+        node -e "
+            const fs = require('fs');
+            const path = '${PACKAGE_JSON}';
+            const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
+            pkg.version = '${NEW_VERSION}';
+            fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');
+        "
+
+        PKG_VER="$(node -e "console.log(require('$PACKAGE_JSON').version)")"
+        [[ "$PKG_VER" == "$NEW_VERSION" ]] || die "package.json version update failed (got '$PKG_VER')"
+        ok "frontend/package.json → $NEW_VERSION"
+    fi
+else
+    info "Skipping frontend/package.json (--only backend)"
+fi
+
+# ── Step: Bump version strings in nix/package.nix ────────────────────────────
+
+next_step
+step "Step $CURRENT_STEP/$TOTAL_STEPS — Bump nix/package.nix version strings"
 
 if $DRY_RUN; then
     info "Would replace all version = \"$CURRENT_VERSION\" → \"$NEW_VERSION\" in package.nix"
@@ -204,32 +274,43 @@ else
     ok "nix/package.nix → $NEW_VERSION ($COUNT occurrences)"
 fi
 
-# ── Step 4: Update Cargo.lock ─────────────────────────────────────────────────
+# ── Step: Update Cargo.lock ───────────────────────────────────────────────────
 
-step "Step 4/6 — Update Cargo.lock"
+if $BUMP_BACKEND; then
+    next_step
+    step "Step $CURRENT_STEP/$TOTAL_STEPS — Update Cargo.lock"
 
-if $DRY_RUN; then
-    info "Would run 'cargo check' in backend/ to refresh Cargo.lock"
+    if $DRY_RUN; then
+        info "Would run 'cargo check' in backend/ to refresh Cargo.lock"
+    else
+        (cd "$REPO_DIR/backend" && cargo check --quiet 2>&1) || die "cargo check failed"
+        ok "Cargo.lock updated"
+    fi
 else
-    (cd "$REPO_DIR/backend" && cargo check --quiet 2>&1) || die "cargo check failed"
-    ok "Cargo.lock updated"
+    info "Skipping Cargo.lock (--only frontend)"
 fi
 
-# ── Step 5: Update pnpm-lock.yaml ────────────────────────────────────────────
+# ── Step: Update pnpm-lock.yaml ──────────────────────────────────────────────
 
-step "Step 5/6 — Update pnpm-lock.yaml"
+if $BUMP_FRONTEND; then
+    next_step
+    step "Step $CURRENT_STEP/$TOTAL_STEPS — Update pnpm-lock.yaml"
 
-if $DRY_RUN; then
-    info "Would run 'pnpm install' in frontend/ to refresh lockfile"
+    if $DRY_RUN; then
+        info "Would run 'pnpm install' in frontend/ to refresh lockfile"
+    else
+        (cd "$REPO_DIR/frontend" && pnpm install --no-frozen-lockfile 2>&1 | tail -1) \
+            || die "pnpm install failed"
+        ok "pnpm-lock.yaml updated"
+    fi
 else
-    (cd "$REPO_DIR/frontend" && pnpm install --no-frozen-lockfile 2>&1 | tail -1) \
-        || die "pnpm install failed"
-    ok "pnpm-lock.yaml updated"
+    info "Skipping pnpm-lock.yaml (--only backend)"
 fi
 
 # ── Step 6: Recompute Nix hashes ─────────────────────────────────────────────
 
-step "Step 6/6 — Recompute Nix hashes"
+next_step
+step "Step $CURRENT_STEP/$TOTAL_STEPS — Recompute Nix hashes"
 
 if $SKIP_NIX; then
     warn "Skipping Nix hash recomputation (--skip-nix or nix not available)"
@@ -258,17 +339,27 @@ else
     # Find the line numbers for each hash so we can target sed precisely
     PNPM_LINE="$(grep -n 'hash = "sha256-' "$NIX_PACKAGE" | head -1 | cut -d: -f1)"
     CARGO_LINE="$(grep -n 'cargoHash = "sha256-' "$NIX_PACKAGE" | head -1 | cut -d: -f1)"
-    [[ -n "$PNPM_LINE" ]]  || die "Could not find pnpmDeps hash line in package.nix"
-    [[ -n "$CARGO_LINE" ]] || die "Could not find cargoHash line in package.nix"
+
+    if $BUMP_FRONTEND; then
+        [[ -n "$PNPM_LINE" ]]  || die "Could not find pnpmDeps hash line in package.nix"
+    fi
+    if $BUMP_BACKEND; then
+        [[ -n "$CARGO_LINE" ]] || die "Could not find cargoHash line in package.nix"
+    fi
 
     # Read the current hash values
-    OLD_PNPM_HASH="$(sed -n "${PNPM_LINE}p" "$NIX_PACKAGE" | grep -o 'sha256-[A-Za-z0-9+/]*=*')"
-    OLD_CARGO_HASH="$(sed -n "${CARGO_LINE}p" "$NIX_PACKAGE" | grep -o 'sha256-[A-Za-z0-9+/]*=*')"
-    [[ -n "$OLD_PNPM_HASH" ]]  || die "Could not extract pnpmDeps hash from line $PNPM_LINE"
-    [[ -n "$OLD_CARGO_HASH" ]] || die "Could not extract cargoHash from line $CARGO_LINE"
-
-    info "pnpmDeps hash (line $PNPM_LINE):  $OLD_PNPM_HASH"
-    info "cargoHash     (line $CARGO_LINE): $OLD_CARGO_HASH"
+    OLD_PNPM_HASH=""
+    OLD_CARGO_HASH=""
+    if $BUMP_FRONTEND && [[ -n "$PNPM_LINE" ]]; then
+        OLD_PNPM_HASH="$(sed -n "${PNPM_LINE}p" "$NIX_PACKAGE" | grep -o 'sha256-[A-Za-z0-9+/]*=*')"
+        [[ -n "$OLD_PNPM_HASH" ]]  || die "Could not extract pnpmDeps hash from line $PNPM_LINE"
+        info "pnpmDeps hash (line $PNPM_LINE):  $OLD_PNPM_HASH"
+    fi
+    if $BUMP_BACKEND && [[ -n "$CARGO_LINE" ]]; then
+        OLD_CARGO_HASH="$(sed -n "${CARGO_LINE}p" "$NIX_PACKAGE" | grep -o 'sha256-[A-Za-z0-9+/]*=*')"
+        [[ -n "$OLD_CARGO_HASH" ]] || die "Could not extract cargoHash from line $CARGO_LINE"
+        info "cargoHash     (line $CARGO_LINE): $OLD_CARGO_HASH"
+    fi
 
     # Helper: replace the hash on a specific line
     replace_hash_on_line() {
@@ -295,62 +386,70 @@ else
 
     # ── 6a. pnpmDeps hash ──
 
-    info "Probing pnpmDeps hash..."
-    replace_hash_on_line "$PNPM_LINE" "$OLD_PNPM_HASH" "$FAKE_HASH" "$NIX_PACKAGE"
-    nix_build_probe
+    if $BUMP_FRONTEND; then
+        info "Probing pnpmDeps hash..."
+        replace_hash_on_line "$PNPM_LINE" "$OLD_PNPM_HASH" "$FAKE_HASH" "$NIX_PACKAGE"
+        nix_build_probe
 
-    NEW_PNPM_HASH="$(extract_got_hash "$NIX_LOG")"
+        NEW_PNPM_HASH="$(extract_got_hash "$NIX_LOG")"
 
-    if [[ -z "$NEW_PNPM_HASH" ]]; then
-        # Build may have succeeded if the hash wasn't actually checked (unlikely),
-        # or the output format changed.  Fall back to old hash.
-        warn "Could not extract pnpmDeps hash from nix output — restoring old hash"
-        NEW_PNPM_HASH="$OLD_PNPM_HASH"
-    fi
+        if [[ -z "$NEW_PNPM_HASH" ]]; then
+            # Build may have succeeded if the hash wasn't actually checked (unlikely),
+            # or the output format changed.  Fall back to old hash.
+            warn "Could not extract pnpmDeps hash from nix output — restoring old hash"
+            NEW_PNPM_HASH="$OLD_PNPM_HASH"
+        fi
 
-    replace_hash_on_line "$PNPM_LINE" "$FAKE_HASH" "$NEW_PNPM_HASH" "$NIX_PACKAGE"
+        replace_hash_on_line "$PNPM_LINE" "$FAKE_HASH" "$NEW_PNPM_HASH" "$NIX_PACKAGE"
 
-    if [[ "$NEW_PNPM_HASH" == "$OLD_PNPM_HASH" ]]; then
-        ok "pnpmDeps hash unchanged: $NEW_PNPM_HASH"
+        if [[ "$NEW_PNPM_HASH" == "$OLD_PNPM_HASH" ]]; then
+            ok "pnpmDeps hash unchanged: $NEW_PNPM_HASH"
+        else
+            ok "pnpmDeps hash updated:"
+            info "  old: $OLD_PNPM_HASH"
+            info "  new: $NEW_PNPM_HASH"
+        fi
     else
-        ok "pnpmDeps hash updated:"
-        info "  old: $OLD_PNPM_HASH"
-        info "  new: $NEW_PNPM_HASH"
+        info "Skipping pnpmDeps hash (--only backend)"
     fi
 
     # ── 6b. cargoHash ──
 
-    info "Probing cargoHash..."
+    if $BUMP_BACKEND; then
+        info "Probing cargoHash..."
 
-    # Re-read the cargo line number in case line numbers shifted (they shouldn't,
-    # but be safe)
-    CARGO_LINE="$(grep -n 'cargoHash = "sha256-' "$NIX_PACKAGE" | head -1 | cut -d: -f1)"
-    [[ -n "$CARGO_LINE" ]] || die "Lost cargoHash line in package.nix"
+        # Re-read the cargo line number in case line numbers shifted (they shouldn't,
+        # but be safe)
+        CARGO_LINE="$(grep -n 'cargoHash = "sha256-' "$NIX_PACKAGE" | head -1 | cut -d: -f1)"
+        [[ -n "$CARGO_LINE" ]] || die "Lost cargoHash line in package.nix"
 
-    replace_hash_on_line "$CARGO_LINE" "$OLD_CARGO_HASH" "$FAKE_HASH" "$NIX_PACKAGE"
-    nix_build_probe
+        replace_hash_on_line "$CARGO_LINE" "$OLD_CARGO_HASH" "$FAKE_HASH" "$NIX_PACKAGE"
+        nix_build_probe
 
-    NEW_CARGO_HASH="$(extract_got_hash "$NIX_LOG")"
+        NEW_CARGO_HASH="$(extract_got_hash "$NIX_LOG")"
 
-    if [[ -z "$NEW_CARGO_HASH" ]]; then
-        # If the build SUCCEEDED, the old hash was still valid
-        if grep -q 'error:' "$NIX_LOG" 2>/dev/null; then
-            # Build failed but we couldn't parse the hash — dump the log
-            warn "Could not extract cargoHash from nix output — restoring old hash"
-            warn "Nix output was:"
-            head -30 "$NIX_LOG" | sed 's/^/    /' >&2
+        if [[ -z "$NEW_CARGO_HASH" ]]; then
+            # If the build SUCCEEDED, the old hash was still valid
+            if grep -q 'error:' "$NIX_LOG" 2>/dev/null; then
+                # Build failed but we couldn't parse the hash — dump the log
+                warn "Could not extract cargoHash from nix output — restoring old hash"
+                warn "Nix output was:"
+                head -30 "$NIX_LOG" | sed 's/^/    /' >&2
+            fi
+            NEW_CARGO_HASH="$OLD_CARGO_HASH"
         fi
-        NEW_CARGO_HASH="$OLD_CARGO_HASH"
-    fi
 
-    replace_hash_on_line "$CARGO_LINE" "$FAKE_HASH" "$NEW_CARGO_HASH" "$NIX_PACKAGE"
+        replace_hash_on_line "$CARGO_LINE" "$FAKE_HASH" "$NEW_CARGO_HASH" "$NIX_PACKAGE"
 
-    if [[ "$NEW_CARGO_HASH" == "$OLD_CARGO_HASH" ]]; then
-        ok "cargoHash unchanged: $NEW_CARGO_HASH"
+        if [[ "$NEW_CARGO_HASH" == "$OLD_CARGO_HASH" ]]; then
+            ok "cargoHash unchanged: $NEW_CARGO_HASH"
+        else
+            ok "cargoHash updated:"
+            info "  old: $OLD_CARGO_HASH"
+            info "  new: $NEW_CARGO_HASH"
+        fi
     else
-        ok "cargoHash updated:"
-        info "  old: $OLD_CARGO_HASH"
-        info "  new: $NEW_CARGO_HASH"
+        info "Skipping cargoHash (--only frontend)"
     fi
 
     # ── 6c. Verify the full build passes ──
@@ -358,8 +457,12 @@ else
     info "Verifying nix build with updated hashes..."
     echo ""
     info "Final hashes in nix/package.nix:"
-    info "  pnpmDeps (line $PNPM_LINE): $(sed -n "${PNPM_LINE}p" "$NIX_PACKAGE" | grep -o 'sha256-[A-Za-z0-9+/]*=*')"
-    info "  cargoHash (line $CARGO_LINE): $(sed -n "${CARGO_LINE}p" "$NIX_PACKAGE" | grep -o 'sha256-[A-Za-z0-9+/]*=*')"
+    if $BUMP_FRONTEND && [[ -n "$PNPM_LINE" ]]; then
+        info "  pnpmDeps (line $PNPM_LINE): $(sed -n "${PNPM_LINE}p" "$NIX_PACKAGE" | grep -o 'sha256-[A-Za-z0-9+/]*=*')"
+    fi
+    if $BUMP_BACKEND && [[ -n "$CARGO_LINE" ]]; then
+        info "  cargoHash (line $CARGO_LINE): $(sed -n "${CARGO_LINE}p" "$NIX_PACKAGE" | grep -o 'sha256-[A-Za-z0-9+/]*=*')"
+    fi
     echo ""
 
     (cd "$REPO_DIR" && git add -A)
@@ -383,16 +486,24 @@ echo -e "${BOLD}${CYAN}  Summary${NC}"
 echo -e "${BOLD}${CYAN}══════════════════════════════════════════════════════════════${NC}"
 echo ""
 
+if [[ -n "$ONLY_SCOPE" ]]; then
+    echo -e "  Scope:         ${CYAN}$ONLY_SCOPE only${NC}"
+fi
+
 if $DRY_RUN; then
     echo -e "  ${YELLOW}DRY RUN — no changes were made${NC}"
     echo ""
     echo -e "  Version:       ${RED}$CURRENT_VERSION${NC} → ${GREEN}$NEW_VERSION${NC}"
     echo ""
     echo "  Files that would be modified:"
-    echo "    • backend/Cargo.toml"
-    echo "    • backend/Cargo.lock"
-    echo "    • frontend/package.json"
-    echo "    • frontend/pnpm-lock.yaml"
+    if $BUMP_BACKEND; then
+        echo "    • backend/Cargo.toml"
+        echo "    • backend/Cargo.lock"
+    fi
+    if $BUMP_FRONTEND; then
+        echo "    • frontend/package.json"
+        echo "    • frontend/pnpm-lock.yaml"
+    fi
     echo "    • nix/package.nix"
     echo ""
     exit 0
@@ -401,20 +512,31 @@ fi
 echo -e "  Version:       ${RED}$CURRENT_VERSION${NC} → ${GREEN}$NEW_VERSION${NC}"
 echo ""
 echo "  Updated files:"
-echo -e "    ${GREEN}✔${NC} backend/Cargo.toml"
-echo -e "    ${GREEN}✔${NC} backend/Cargo.lock"
-echo -e "    ${GREEN}✔${NC} frontend/package.json"
-echo -e "    ${GREEN}✔${NC} frontend/pnpm-lock.yaml"
+if $BUMP_BACKEND; then
+    echo -e "    ${GREEN}✔${NC} backend/Cargo.toml"
+    echo -e "    ${GREEN}✔${NC} backend/Cargo.lock"
+fi
+if $BUMP_FRONTEND; then
+    echo -e "    ${GREEN}✔${NC} frontend/package.json"
+    echo -e "    ${GREEN}✔${NC} frontend/pnpm-lock.yaml"
+fi
 echo -e "    ${GREEN}✔${NC} nix/package.nix (versions)"
 if ! $SKIP_NIX; then
-    echo -e "    ${GREEN}✔${NC} nix/package.nix (cargoHash)"
-    echo -e "    ${GREEN}✔${NC} nix/package.nix (pnpmDeps hash)"
+    if $BUMP_BACKEND; then
+        echo -e "    ${GREEN}✔${NC} nix/package.nix (cargoHash)"
+    fi
+    if $BUMP_FRONTEND; then
+        echo -e "    ${GREEN}✔${NC} nix/package.nix (pnpmDeps hash)"
+    fi
 fi
 echo ""
 
 # ── Optional: git commit ──────────────────────────────────────────────────────
 
 if $SKIP_COMMIT; then
+    if [[ -n "$GIT_ACTION" ]]; then
+        warn "--git $GIT_ACTION ignored because --skip-commit was specified"
+    fi
     info "Skipping git commit (--skip-commit)"
     echo ""
     echo -e "  ${YELLOW}Remember to commit and tag:${NC}"
@@ -429,22 +551,53 @@ else
     if [[ -z "$STAGED" ]]; then
         warn "Nothing to commit (all changes already committed?)"
     else
-        (cd "$REPO_DIR" && git commit -m "chore: bump version to v$NEW_VERSION
+        COMMIT_FILES=""
+        if $BUMP_BACKEND; then
+            COMMIT_FILES="${COMMIT_FILES}
+- backend/Cargo.toml
+- backend/Cargo.lock"
+        fi
+        if $BUMP_FRONTEND; then
+            COMMIT_FILES="${COMMIT_FILES}
+- frontend/package.json
+- frontend/pnpm-lock.yaml"
+        fi
+        COMMIT_FILES="${COMMIT_FILES}
+- nix/package.nix (versions + hashes)"
+
+        SCOPE_MSG=""
+        if [[ -n "$ONLY_SCOPE" ]]; then
+            SCOPE_MSG=" ($ONLY_SCOPE only)"
+        fi
+
+        (cd "$REPO_DIR" && git commit -m "chore: bump version to v${NEW_VERSION}${SCOPE_MSG}
 
 Automated release bump $CURRENT_VERSION → $NEW_VERSION.
 
-Files updated:
-- backend/Cargo.toml
-- backend/Cargo.lock
-- frontend/package.json
-- frontend/pnpm-lock.yaml
-- nix/package.nix (versions + hashes)")
+Files updated:${COMMIT_FILES}")
 
         ok "Committed version bump"
-        echo ""
-        echo -e "  ${YELLOW}Don't forget to tag and push:${NC}"
-        echo "    git tag v$NEW_VERSION"
-        echo "    git push && git push --tags"
+
+        if [[ "$GIT_ACTION" == "tag" || "$GIT_ACTION" == "push" ]]; then
+            (cd "$REPO_DIR" && git tag "v$NEW_VERSION")
+            ok "Tagged v$NEW_VERSION"
+        fi
+
+        if [[ "$GIT_ACTION" == "push" ]]; then
+            (cd "$REPO_DIR" && git push && git push --tags)
+            ok "Pushed commit and tags"
+        fi
+
+        if [[ -z "$GIT_ACTION" ]]; then
+            echo ""
+            echo -e "  ${YELLOW}Don't forget to tag and push:${NC}"
+            echo "    git tag v$NEW_VERSION"
+            echo "    git push && git push --tags"
+        elif [[ "$GIT_ACTION" == "tag" ]]; then
+            echo ""
+            echo -e "  ${YELLOW}Don't forget to push:${NC}"
+            echo "    git push && git push --tags"
+        fi
     fi
 fi
 

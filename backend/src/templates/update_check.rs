@@ -245,14 +245,20 @@ pub async fn perform_check(
 ) -> UpdateCheckResult {
     let now = Utc::now();
 
-    let latest_result: Result<String, String> = match &update_check.provider {
+    // For CurseForge we get both the version ID and a human-readable
+    // display name.  Other providers only produce a plain version string.
+    let (latest_result, mut latest_version_display, mut installed_version_display): (
+        Result<String, String>,
+        Option<String>,
+        Option<String>,
+    ) = match &update_check.provider {
         UpdateCheckProvider::Api {
             url,
             path,
             pick,
             value_key,
         } => {
-            execute_api_provider(
+            let r = execute_api_provider(
                 http_client,
                 url,
                 path.as_deref(),
@@ -260,23 +266,59 @@ pub async fn perform_check(
                 value_key.as_deref(),
                 vars,
             )
-            .await
+            .await;
+            (r, None, None)
         }
         UpdateCheckProvider::TemplateDefault => {
-            template_lookup().and_then(|opt| {
+            let r = template_lookup().and_then(|opt| {
                 opt.ok_or_else(|| {
                     "Could not determine template default version (template not found or no version parameter)".to_string()
                 })
-            })
+            });
+            (r, None, None)
         }
         UpdateCheckProvider::Command {
             command,
             timeout_secs,
-        } => execute_command_provider(command, *timeout_secs, vars).await,
+        } => {
+            let r = execute_command_provider(command, *timeout_secs, vars).await;
+            (r, None, None)
+        }
         UpdateCheckProvider::CurseForge { project_id } => {
-            execute_curseforge_provider(http_client, *project_id, curseforge_api_key).await
+            match execute_curseforge_provider(http_client, *project_id, curseforge_api_key).await {
+                Ok((version, display)) => (Ok(version), Some(display), None),
+                Err(e) => (Err(e), None, None),
+            }
         }
     };
+
+    // For CurseForge, resolve the installed version's display name by
+    // fetching the file metadata.  This is best-effort — we silently
+    // fall back to `None` on any error.
+    if let UpdateCheckProvider::CurseForge { project_id } = &update_check.provider {
+        if let Some(ref installed) = installed_version {
+            if let Ok(file_id) = installed.parse::<u32>() {
+                if let Some(api_key) = curseforge_api_key {
+                    if let Ok(file) = crate::integrations::curseforge::fetch_file(
+                        http_client,
+                        api_key,
+                        *project_id,
+                        file_id,
+                    )
+                    .await
+                    {
+                        if !file.display_name.is_empty() {
+                            installed_version_display = Some(file.display_name);
+                        }
+                    }
+                }
+            }
+        }
+        // If the latest display name ended up empty, clear it
+        if latest_version_display.as_deref() == Some("") {
+            latest_version_display = None;
+        }
+    }
 
     match latest_result {
         Ok(latest) => {
@@ -289,6 +331,8 @@ pub async fn perform_check(
                 update_available,
                 installed_version,
                 latest_version: Some(latest),
+                installed_version_display,
+                latest_version_display,
                 checked_at: now,
                 error: None,
             }
@@ -298,6 +342,8 @@ pub async fn perform_check(
             update_available: false,
             installed_version,
             latest_version: None,
+            installed_version_display: None,
+            latest_version_display: None,
             checked_at: now,
             error: Some(err),
         },
@@ -305,7 +351,8 @@ pub async fn perform_check(
 }
 
 /// Execute the `curseforge` provider: query the CurseForge API for the
-/// newest file of a project and return its file ID as a string.
+/// newest file of a project and return its file ID as a string together
+/// with the human-readable display name.
 ///
 /// The installed version (a file ID) is compared against this to
 /// determine whether an update is available.
@@ -313,7 +360,7 @@ async fn execute_curseforge_provider(
     http_client: &reqwest::Client,
     project_id: u32,
     api_key: Option<&str>,
-) -> Result<String, String> {
+) -> Result<(String, String), String> {
     let api_key = api_key.ok_or_else(|| {
         "CurseForge API key is not configured. \
          Ask an admin to set it up in Admin Panel → CurseForge."
@@ -337,7 +384,7 @@ async fn execute_curseforge_provider(
         )
     })?;
 
-    Ok(latest.id.to_string())
+    Ok((latest.id.to_string(), latest.display_name.clone()))
 }
 
 // ─── Tests ───────────────────────────────────────────────────────────

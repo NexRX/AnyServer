@@ -177,7 +177,7 @@ const ServerCard: Component<Props> = (props) => {
           <Show when={props.updateResult?.update_available}>
             <span
               class="card-update-badge"
-              title={`Update available: ${props.updateResult?.installed_version ?? "?"} → ${props.updateResult?.latest_version ?? "?"}`}
+              title={`Update available: ${props.updateResult?.installed_version_display ?? props.updateResult?.installed_version ?? "?"} → ${props.updateResult?.latest_version_display ?? props.updateResult?.latest_version ?? "?"}`}
             >
               ⬆ Update
             </span>

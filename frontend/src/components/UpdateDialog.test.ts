@@ -363,10 +363,10 @@ describe("UpdateDialog version fetching", () => {
   });
 
   it("resets manualMode to false after a successful fetch with results", () => {
-    // After setVersions(resp.options), if options exist, manualMode must
+    // After setVersions(options), if options exist, manualMode must
     // be set back to false so the dropdown renders instead of the text input.
     expect(source).toMatch(
-      /setVersions\(resp\.options\)[\s\S]*?setManualMode\(false\)/,
+      /setVersions\(options\)[\s\S]*?setManualMode\(false\)/,
     );
   });
 });

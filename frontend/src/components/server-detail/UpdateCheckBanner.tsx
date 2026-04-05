@@ -13,6 +13,12 @@ export interface UpdateCheckBannerProps {
 const UpdateCheckBanner: Component<UpdateCheckBannerProps> = (props) => {
   const hasUpdate = () => props.result?.update_available ?? false;
 
+  /** Prefer the human-readable display name, fall back to the raw value. */
+  const installedDisplay = () =>
+    props.result?.installed_version_display ?? props.result?.installed_version;
+  const latestDisplay = () =>
+    props.result?.latest_version_display ?? props.result?.latest_version;
+
   return (
     <div
       class="update-check-banner"
@@ -44,19 +50,15 @@ const UpdateCheckBanner: Component<UpdateCheckBannerProps> = (props) => {
             </Show>
             <Show when={!result().error && result().update_available}>
               <span class="update-check-banner-text update-check-banner-text--warn">
-                ⬆ Update available:{" "}
-                <strong>{result().installed_version ?? "?"}</strong>
+                ⬆ Update available: <strong>{installedDisplay() ?? "?"}</strong>
                 {" → "}
-                <strong>{result().latest_version ?? "?"}</strong>
+                <strong>{latestDisplay() ?? "?"}</strong>
               </span>
             </Show>
             <Show when={!result().error && !result().update_available}>
               <span class="update-check-banner-text update-check-banner-text--ok">
                 ✓ Up to date
-                <Show when={result().installed_version}>
-                  {" "}
-                  ({result().installed_version})
-                </Show>
+                <Show when={installedDisplay()}> ({installedDisplay()})</Show>
               </span>
             </Show>
             <button

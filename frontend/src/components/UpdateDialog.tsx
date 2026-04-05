@@ -13,6 +13,7 @@ import type {
   UpdateCheckResult,
 } from "../types/bindings";
 import { fetchOptions } from "../api/templates";
+import { fetchCurseForgeFiles } from "../api/curseforge";
 
 export interface UpdateDialogProps {
   /** The version parameter definition (is_version === true), if any. */
@@ -52,61 +53,129 @@ const UpdateDialog: Component<UpdateDialogProps> = (props) => {
       ? props.updateCheckResult.latest_version
       : null;
 
+  /** Look up a display label from the loaded versions list (returns null if not found). */
+  const labelFromVersions = (
+    value: string | null | undefined,
+  ): string | null => {
+    if (!value) return null;
+    const opt = versions().find((o) => o.value === value);
+    return opt && opt.label !== opt.value ? opt.label : null;
+  };
+
+  // Human-readable display names (e.g. CurseForge file names instead of IDs).
+  // Priority: update-check display name → loaded versions list → raw value.
+  const currentVersionDisplay = () =>
+    props.updateCheckResult?.installed_version_display ??
+    labelFromVersions(currentVersion()) ??
+    currentVersion();
+
+  const latestVersionDisplay = () =>
+    props.updateCheckResult?.latest_version_display ??
+    labelFromVersions(latestVersion()) ??
+    latestVersion();
+
+  /** Resolve a version value to its display label. */
+  const displayForVersion = (value: string) => {
+    const fromList = labelFromVersions(value);
+    if (fromList) return fromList;
+    // Fall back to known display names from the update check result
+    if (
+      value === currentVersion() &&
+      props.updateCheckResult?.installed_version_display
+    )
+      return props.updateCheckResult.installed_version_display;
+    if (
+      value === latestVersion() &&
+      props.updateCheckResult?.latest_version_display
+    )
+      return props.updateCheckResult.latest_version_display;
+    return value;
+  };
+
+  /** Whether we have a way to fetch version options (options_from, CurseForge, etc.). */
+  const canLoadVersions = () => {
+    if (props.versionParam?.options_from) return true;
+    if (
+      props.versionParam?.param_type === "curse_forge_file_version" &&
+      props.versionParam.curseforge_project_id
+    )
+      return true;
+    return false;
+  };
+
   // On mount, set initial selected version and fetch options
   onMount(() => {
     // Default to latest from update check, or current version
     const initial = latestVersion() ?? currentVersion();
     setSelectedVersion(initial);
 
-    if (props.versionParam?.options_from) {
+    if (canLoadVersions()) {
       loadVersions();
     } else {
-      // No options_from → manual input mode
+      // No known way to fetch versions → manual input mode
       setManualMode(true);
     }
   });
 
   const loadVersions = async () => {
-    const of = props.versionParam?.options_from;
-    if (!of) return;
-
     setLoading(true);
     setFetchError(null);
     try {
-      // Build substitution params from other parameter values
-      const subs: Record<string, string> = {};
-      for (const [k, v] of Object.entries(props.parameterValues)) {
-        if (k !== props.versionParam!.name) {
-          subs[k] = v;
+      let options: FetchedOption[];
+
+      // CurseForge file version parameters use their own API
+      if (
+        props.versionParam?.param_type === "curse_forge_file_version" &&
+        props.versionParam.curseforge_project_id
+      ) {
+        const resp = await fetchCurseForgeFiles(
+          props.versionParam.curseforge_project_id,
+        );
+        options = resp.options.map((o) => ({
+          value: o.value,
+          label: o.label,
+        }));
+      } else {
+        // Generic options_from fetch
+        const of = props.versionParam?.options_from;
+        if (!of) return;
+
+        // Build substitution params from other parameter values
+        const subs: Record<string, string> = {};
+        for (const [k, v] of Object.entries(props.parameterValues)) {
+          if (k !== props.versionParam!.name) {
+            subs[k] = v;
+          }
         }
+
+        const resp = await fetchOptions({
+          url: of.url,
+          path: of.path,
+          value_key: of.value_key,
+          label_key: of.label_key,
+          sort: of.sort,
+          limit: of.limit,
+          params: subs,
+        });
+        options = resp.options;
       }
 
-      const resp = await fetchOptions({
-        url: of.url,
-        path: of.path,
-        value_key: of.value_key,
-        label_key: of.label_key,
-        sort: of.sort,
-        limit: of.limit,
-        params: subs,
-      });
-
-      setVersions(resp.options);
+      setVersions(options);
 
       // Successful fetch → switch back to dropdown mode so the
       // <select> renders instead of the manual text input.
-      if (resp.options.length > 0) {
+      if (options.length > 0) {
         setManualMode(false);
       }
 
       // If the selected version isn't in the fetched list, keep it but note it
       const sel = selectedVersion();
-      const inList = resp.options.some((o) => o.value === sel);
-      if (!inList && sel && resp.options.length > 0) {
+      const inList = options.some((o) => o.value === sel);
+      if (!inList && sel && options.length > 0) {
         // If we had a latest from update check that's not in the list,
         // fall back to first option
         if (!latestVersion() || latestVersion() !== sel) {
-          setSelectedVersion(resp.options[0].value);
+          setSelectedVersion(options[0].value);
         }
       }
     } catch (e: unknown) {
@@ -254,7 +323,7 @@ const UpdateDialog: Component<UpdateDialogProps> = (props) => {
                   "border-radius": "4px",
                 }}
               >
-                {currentVersion()}
+                {currentVersionDisplay()}
               </span>
             </div>
           </Show>
@@ -283,7 +352,7 @@ const UpdateDialog: Component<UpdateDialogProps> = (props) => {
                     "font-family": "'SF Mono', 'Cascadia Code', monospace",
                   }}
                 >
-                  {latestVersion()}
+                  {latestVersionDisplay()}
                 </strong>
               </span>
             </div>
@@ -358,7 +427,7 @@ const UpdateDialog: Component<UpdateDialogProps> = (props) => {
                         }}
                         autofocus
                       />
-                      <Show when={props.versionParam?.options_from}>
+                      <Show when={canLoadVersions()}>
                         <button
                           class="btn btn-sm"
                           onClick={loadVersions}
@@ -468,7 +537,7 @@ const UpdateDialog: Component<UpdateDialogProps> = (props) => {
                           "font-size": "0.8rem",
                         }}
                       >
-                        {currentVersion()}
+                        {currentVersionDisplay()}
                       </span>
                       <span style={{ margin: "0 0.35rem" }}>→</span>
                       <span
@@ -479,7 +548,7 @@ const UpdateDialog: Component<UpdateDialogProps> = (props) => {
                           "font-weight": "600",
                         }}
                       >
-                        {selectedVersion()}
+                        {displayForVersion(selectedVersion())}
                       </span>
                     </span>
                   </Show>

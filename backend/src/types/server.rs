@@ -94,6 +94,14 @@ pub struct UpdateCheckResult {
     pub update_available: bool,
     pub installed_version: Option<String>,
     pub latest_version: Option<String>,
+    /// Human-readable display name for the installed version (e.g. CurseForge file display name).
+    /// When present, UIs should prefer this over `installed_version`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub installed_version_display: Option<String>,
+    /// Human-readable display name for the latest version (e.g. CurseForge file display name).
+    /// When present, UIs should prefer this over `latest_version`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub latest_version_display: Option<String>,
     pub checked_at: DateTime<Utc>,
     /// Human-readable error if the check failed.
     #[serde(default)]

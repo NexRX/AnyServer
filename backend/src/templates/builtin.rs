@@ -897,9 +897,16 @@ fn prominence_2_template() -> ServerTemplate {
                     name: "Wait for shutdown".into(),
                     description: Some("Wait for the server to finish saving chunks.".into()),
                     action: StepAction::WaitForOutput {
-                        pattern: "All dimensions are saved".into(),
+                        pattern: "Automatically restarting server in 5 seconds".into(),
                         timeout_secs: 45,
                     },
+                    condition: None,
+                    continue_on_error: true,
+                },
+                PipelineStep {
+                    name: "Terminate (Ctrl+C)".into(),
+                    description: Some("Send the kill signal (Ctrl+C).".into()),
+                    action: StepAction::SendSignal { signal: StopSignal::Sigint },
                     condition: None,
                     continue_on_error: true,
                 },

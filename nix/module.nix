@@ -302,6 +302,11 @@ in
       after = [ "network.target" ] ++ lib.optional nginxCfg.enable "nginx.service";
       wantedBy = [ "multi-user.target" ];
 
+      path = [
+        cfg.package
+        config.system.path
+      ];
+
       environment = {
         ANYSERVER_DATA_DIR = cfg.dataDir;
         ANYSERVER_HTTP_PORT = toString cfg.httpPort;

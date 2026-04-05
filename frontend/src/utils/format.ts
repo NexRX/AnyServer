@@ -52,23 +52,45 @@ export function computeShutdownPercent(
   return Math.min(100, (effective / timeoutSecs) * 100);
 }
 
+/**
+ * Compute how many seconds remain in the grace period.
+ *
+ * Uses the server-reported `elapsedSecs` (anchored to stop-start) and
+ * `timeoutSecs` (total estimated time until SIGKILL) so the countdown
+ * is stable across WebSocket updates.  A local-clock delta from
+ * `receivedAtMs` interpolates smoothly between server messages.
+ */
 export function computeGraceRemaining(
-  graceSecs: number,
+  elapsedSecs: number,
+  timeoutSecs: number,
   receivedAtMs: number,
   nowMs: number,
 ): number {
-  const localElapsed = Math.max(0, (nowMs - receivedAtMs) / 1000);
-  return Math.max(0, graceSecs - localElapsed);
+  return Math.max(
+    0,
+    timeoutSecs - effectiveElapsed(elapsedSecs, receivedAtMs, nowMs),
+  );
 }
 
+/**
+ * Compute the grace-period progress as a percentage (0–100).
+ *
+ * `graceStart` is derived as `timeoutSecs - graceSecs` (the point in the
+ * overall timeline where the grace period began).  Progress is measured
+ * from that anchor so it is immune to `receivedAt` resets.
+ */
 export function computeGracePercent(
+  elapsedSecs: number,
+  timeoutSecs: number,
   graceSecs: number,
   receivedAtMs: number,
   nowMs: number,
 ): number {
   if (graceSecs <= 0) return 100;
-  const localElapsed = Math.max(0, (nowMs - receivedAtMs) / 1000);
-  return Math.min(100, (localElapsed / graceSecs) * 100);
+  const effective = effectiveElapsed(elapsedSecs, receivedAtMs, nowMs);
+  const graceStart = timeoutSecs - graceSecs;
+  const graceElapsed = Math.max(0, effective - graceStart);
+  return Math.min(100, (graceElapsed / graceSecs) * 100);
 }
 
 /** Format a date string as "Jan 1, 2024" (date only). */

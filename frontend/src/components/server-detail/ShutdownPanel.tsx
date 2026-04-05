@@ -45,7 +45,9 @@ function stopPhaseLabel(phase: StopPhase): string {
 }
 
 function isCancellable(phase: StopPhase | undefined): boolean {
-  return phase !== undefined && phase !== "sending_sigkill" && phase !== "cancelled";
+  return (
+    phase !== undefined && phase !== "sending_sigkill" && phase !== "cancelled"
+  );
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -58,15 +60,15 @@ const ShutdownPanel: Component<ShutdownPanelProps> = (props) => {
   const elapsed = () => {
     // Access tick to subscribe to the reactive timer
     void props.tick;
-    const localDelta =
-      Math.max(0, Date.now() - props.entry.receivedAt) / 1000;
+    const localDelta = Math.max(0, Date.now() - props.entry.receivedAt) / 1000;
     return props.entry.progress.elapsed_secs + localDelta;
   };
 
   const graceRemaining = () => {
     void props.tick;
     return computeGraceRemaining(
-      graceSecs(),
+      props.entry.progress.elapsed_secs,
+      props.entry.progress.timeout_secs,
       props.entry.receivedAt,
       Date.now(),
     );
@@ -85,6 +87,8 @@ const ShutdownPanel: Component<ShutdownPanelProps> = (props) => {
     }
     if (p === "waiting_for_exit") {
       return computeGracePercent(
+        props.entry.progress.elapsed_secs,
+        props.entry.progress.timeout_secs,
         graceSecs(),
         props.entry.receivedAt,
         Date.now(),
@@ -115,12 +119,8 @@ const ShutdownPanel: Component<ShutdownPanelProps> = (props) => {
   return (
     <div class="shutdown-panel">
       <div class="shutdown-panel-header">
-        <span class="shutdown-phase-label">
-          {stopPhaseLabel(phase())}
-        </span>
-        <span class="shutdown-countdown">
-          {headerRight()}
-        </span>
+        <span class="shutdown-phase-label">{stopPhaseLabel(phase())}</span>
+        <span class="shutdown-countdown">{headerRight()}</span>
       </div>
 
       <Show when={phase() === "running_stop_steps" && stepInfo()}>
@@ -129,9 +129,7 @@ const ShutdownPanel: Component<ShutdownPanelProps> = (props) => {
             <span class="shutdown-step-counter">
               Step {info().index + 1}/{info().total}
             </span>
-            <span class="shutdown-step-name">
-              {info().name}
-            </span>
+            <span class="shutdown-step-name">{info().name}</span>
             <Show when={info().step_timeout_secs != null}>
               <span class="shutdown-step-timeout">
                 (up to {info().step_timeout_secs}s)
@@ -154,12 +152,8 @@ const ShutdownPanel: Component<ShutdownPanelProps> = (props) => {
           onClick={props.onCancelStop}
           disabled={props.cancellingStop}
         >
-          {props.cancellingStop ? (
-            <span class="btn-spinner" />
-          ) : (
-            "✕"
-          )}{" "}
-          Cancel Shutdown
+          {props.cancellingStop ? <span class="btn-spinner" /> : "✕"} Cancel
+          Shutdown
         </button>
       </Show>
     </div>

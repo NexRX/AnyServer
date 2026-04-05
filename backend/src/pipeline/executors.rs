@@ -373,33 +373,37 @@ pub async fn execute_move(
         LogStream::Stdout,
     );
 
-    if let Some(parent) = dst.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create parent directory {:?}: {}", parent, e))?;
-    }
+    tokio::task::spawn_blocking(move || {
+        if let Some(parent) = dst.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create parent directory {:?}: {}", parent, e))?;
+        }
 
-    match std::fs::rename(&src, &dst) {
-        Ok(()) => {}
-        Err(_) => {
-            if src.is_dir() {
-                copy_dir_recursive(&src, &dst)?;
-                std::fs::remove_dir_all(&src).map_err(|e| {
-                    format!(
-                        "Failed to remove source directory {:?} after copy: {}",
-                        src, e
-                    )
-                })?;
-            } else {
-                std::fs::copy(&src, &dst)
-                    .map_err(|e| format!("Failed to copy {:?} to {:?}: {}", src, dst, e))?;
-                std::fs::remove_file(&src).map_err(|e| {
-                    format!("Failed to remove source file {:?} after copy: {}", src, e)
-                })?;
+        match std::fs::rename(&src, &dst) {
+            Ok(()) => {}
+            Err(_) => {
+                if src.is_dir() {
+                    copy_dir_recursive(&src, &dst)?;
+                    std::fs::remove_dir_all(&src).map_err(|e| {
+                        format!(
+                            "Failed to remove source directory {:?} after copy: {}",
+                            src, e
+                        )
+                    })?;
+                } else {
+                    std::fs::copy(&src, &dst)
+                        .map_err(|e| format!("Failed to copy {:?} to {:?}: {}", src, dst, e))?;
+                    std::fs::remove_file(&src).map_err(|e| {
+                        format!("Failed to remove source file {:?} after copy: {}", src, e)
+                    })?;
+                }
             }
         }
-    }
 
-    Ok(())
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Move task panicked: {}", e))?
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -425,24 +429,29 @@ pub async fn execute_copy(
         LogStream::Stdout,
     );
 
-    if src.is_dir() {
-        if !recursive {
-            return Err(format!(
-                "Source {:?} is a directory but recursive is false",
-                src
-            ));
+    tokio::task::spawn_blocking(move || {
+        if src.is_dir() {
+            if !recursive {
+                return Err(format!(
+                    "Source {:?} is a directory but recursive is false",
+                    src
+                ));
+            }
+            copy_dir_recursive(&src, &dst)?;
+        } else {
+            if let Some(parent) = dst.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    format!("Failed to create parent directory {:?}: {}", parent, e)
+                })?;
+            }
+            std::fs::copy(&src, &dst)
+                .map_err(|e| format!("Failed to copy {:?} to {:?}: {}", src, dst, e))?;
         }
-        copy_dir_recursive(&src, &dst)?;
-    } else {
-        if let Some(parent) = dst.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create parent directory {:?}: {}", parent, e))?;
-        }
-        std::fs::copy(&src, &dst)
-            .map_err(|e| format!("Failed to copy {:?} to {:?}: {}", src, dst, e))?;
-    }
 
-    Ok(())
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Copy task panicked: {}", e))?
 }
 
 fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
@@ -505,24 +514,28 @@ pub async fn execute_delete(
         LogStream::Stdout,
     );
 
-    if target.is_dir() {
-        if recursive {
-            std::fs::remove_dir_all(&target)
-                .map_err(|e| format!("Failed to remove directory {:?}: {}", target, e))?;
+    tokio::task::spawn_blocking(move || {
+        if target.is_dir() {
+            if recursive {
+                std::fs::remove_dir_all(&target)
+                    .map_err(|e| format!("Failed to remove directory {:?}: {}", target, e))?;
+            } else {
+                std::fs::remove_dir(&target).map_err(|e| {
+                    format!(
+                        "Failed to remove directory {:?} (not recursive, must be empty): {}",
+                        target, e
+                    )
+                })?;
+            }
         } else {
-            std::fs::remove_dir(&target).map_err(|e| {
-                format!(
-                    "Failed to remove directory {:?} (not recursive, must be empty): {}",
-                    target, e
-                )
-            })?;
+            std::fs::remove_file(&target)
+                .map_err(|e| format!("Failed to remove file {:?}: {}", target, e))?;
         }
-    } else {
-        std::fs::remove_file(&target)
-            .map_err(|e| format!("Failed to remove file {:?}: {}", target, e))?;
-    }
 
-    Ok(())
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Delete task panicked: {}", e))?
 }
 
 pub async fn execute_create_dir(
@@ -544,10 +557,12 @@ pub async fn execute_create_dir(
         LogStream::Stdout,
     );
 
-    std::fs::create_dir_all(&target)
-        .map_err(|e| format!("Failed to create directory {:?}: {}", target, e))?;
-
-    Ok(())
+    tokio::task::spawn_blocking(move || {
+        std::fs::create_dir_all(&target)
+            .map_err(|e| format!("Failed to create directory {:?}: {}", target, e))
+    })
+    .await
+    .map_err(|e| format!("CreateDir task panicked: {}", e))?
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -738,8 +753,16 @@ pub async fn execute_run_command(
     let status = match wait_result {
         Ok(result) => result.map_err(|e| format!("Failed to wait for command '{}': {}", cmd, e))?,
         Err(_) => {
-            // Timeout occurred — kill the process
-            let _ = child.kill().await;
+            // Timeout occurred — kill the entire process group so that
+            // child processes spawned by shell scripts are also cleaned
+            // up (child.kill() only signals the direct child PID).
+            if let Some(pid) = child.id() {
+                unsafe {
+                    libc::kill(-(pid as i32), libc::SIGKILL);
+                }
+            } else {
+                let _ = child.kill().await;
+            }
             return Err(format!(
                 "Command '{}' timed out after {} seconds",
                 cmd, timeout_secs
@@ -818,16 +841,19 @@ pub async fn execute_write_file(
         LogStream::Stdout,
     );
 
-    if let Some(parent) = file_path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create parent directory {:?}: {}", parent, e))?;
-    }
+    tokio::task::spawn_blocking(move || {
+        if let Some(parent) = file_path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create parent directory {:?}: {}", parent, e))?;
+        }
 
-    tokio::fs::write(&file_path, substituted_content.as_bytes())
-        .await
-        .map_err(|e| format!("Failed to write file {:?}: {}", file_path, e))?;
+        std::fs::write(&file_path, substituted_content.as_bytes())
+            .map_err(|e| format!("Failed to write file {:?}: {}", file_path, e))?;
 
-    Ok(())
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("WriteFile task panicked: {}", e))?
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -861,8 +887,12 @@ pub async fn execute_set_permissions(
             )
         })?;
         let perms = std::fs::Permissions::from_mode(mode_u32);
-        std::fs::set_permissions(&file_path, perms)
-            .map_err(|e| format!("Failed to set permissions on {:?}: {}", file_path, e))?;
+        tokio::task::spawn_blocking(move || {
+            std::fs::set_permissions(&file_path, perms)
+                .map_err(|e| format!("Failed to set permissions on {:?}: {}", file_path, e))
+        })
+        .await
+        .map_err(|e| format!("SetPermissions task panicked: {}", e))??;
     }
 
     #[cfg(not(unix))]
@@ -914,65 +944,78 @@ pub async fn execute_glob(
     let pattern_name = full_pattern
         .file_name()
         .and_then(|n| n.to_str())
-        .ok_or_else(|| "Glob pattern has no filename component".to_string())?;
+        .ok_or_else(|| "Glob pattern has no filename component".to_string())?
+        .to_string();
 
-    let mut matches: Vec<PathBuf> = Vec::new();
-    let entries = std::fs::read_dir(parent)
-        .map_err(|e| format!("Failed to read directory {:?}: {}", parent, e))?;
+    let parent_owned = parent.to_path_buf();
+    let substituted_pattern_clone = substituted_pattern.clone();
+    let handle_clone = Arc::clone(handle);
+    let step_name = step_name.to_string();
 
-    for entry in entries {
-        let entry = entry.map_err(|e| format!("Failed to read dir entry: {}", e))?;
-        let name = entry.file_name();
-        let name_str = name.to_string_lossy();
-        if glob_match(pattern_name, &name_str) {
-            matches.push(entry.path());
-        }
-    }
+    // Directory scanning and file moves can block on large directories or
+    // slow filesystems — run the whole operation on the blocking pool.
+    tokio::task::spawn_blocking(move || {
+        let mut matches: Vec<PathBuf> = Vec::new();
+        let entries = std::fs::read_dir(&parent_owned)
+            .map_err(|e| format!("Failed to read directory {:?}: {}", parent_owned, e))?;
 
-    if matches.is_empty() {
-        return Err(format!(
-            "No files matched glob pattern '{}'",
-            substituted_pattern
-        ));
-    }
-
-    if matches.len() == 1 {
-        let src = &matches[0];
-        handle.emit_log(
-            phase,
-            step_index,
-            step_name,
-            format!("Matched: {:?} -> {:?}", src, dst),
-            LogStream::Stdout,
-        );
-
-        if let Some(parent) = dst.parent() {
-            std::fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create parent directory {:?}: {}", parent, e))?;
+        for entry in entries {
+            let entry = entry.map_err(|e| format!("Failed to read dir entry: {}", e))?;
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy();
+            if glob_match(&pattern_name, &name_str) {
+                matches.push(entry.path());
+            }
         }
 
-        std::fs::rename(src, &dst)
-            .map_err(|e| format!("Failed to rename {:?} to {:?}: {}", src, dst, e))?;
-    } else {
-        std::fs::create_dir_all(&dst)
-            .map_err(|e| format!("Failed to create destination directory {:?}: {}", dst, e))?;
+        if matches.is_empty() {
+            return Err(format!(
+                "No files matched glob pattern '{}'",
+                substituted_pattern_clone
+            ));
+        }
 
-        for src in &matches {
-            let fname = src.file_name().ok_or_else(|| "No filename".to_string())?;
-            let target = dst.join(fname);
-            handle.emit_log(
+        if matches.len() == 1 {
+            let src = &matches[0];
+            handle_clone.emit_log(
                 phase,
                 step_index,
-                step_name,
-                format!("Matched: {:?} -> {:?}", src, target),
+                &step_name,
+                format!("Matched: {:?} -> {:?}", src, dst),
                 LogStream::Stdout,
             );
-            std::fs::rename(src, &target)
-                .map_err(|e| format!("Failed to rename {:?} to {:?}: {}", src, target, e))?;
-        }
-    }
 
-    Ok(())
+            if let Some(parent) = dst.parent() {
+                std::fs::create_dir_all(parent).map_err(|e| {
+                    format!("Failed to create parent directory {:?}: {}", parent, e)
+                })?;
+            }
+
+            std::fs::rename(src, &dst)
+                .map_err(|e| format!("Failed to rename {:?} to {:?}: {}", src, dst, e))?;
+        } else {
+            std::fs::create_dir_all(&dst)
+                .map_err(|e| format!("Failed to create destination directory {:?}: {}", dst, e))?;
+
+            for src in &matches {
+                let fname = src.file_name().ok_or_else(|| "No filename".to_string())?;
+                let target = dst.join(fname);
+                handle_clone.emit_log(
+                    phase,
+                    step_index,
+                    &step_name,
+                    format!("Matched: {:?} -> {:?}", src, target),
+                    LogStream::Stdout,
+                );
+                std::fs::rename(src, &target)
+                    .map_err(|e| format!("Failed to rename {:?} to {:?}: {}", src, target, e))?;
+            }
+        }
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("Glob task panicked: {}", e))?
 }
 
 pub fn glob_match(pattern: &str, text: &str) -> bool {
@@ -1018,9 +1061,12 @@ pub async fn execute_edit_file(
     let file_path = resolve_path(server_dir, path, vars)?;
 
     let existing = if file_path.exists() {
-        tokio::fs::read_to_string(&file_path)
-            .await
-            .map_err(|e| format!("Failed to read file {:?}: {}", file_path, e))?
+        let fp = file_path.clone();
+        tokio::task::spawn_blocking(move || {
+            std::fs::read_to_string(&fp).map_err(|e| format!("Failed to read file {:?}: {}", fp, e))
+        })
+        .await
+        .map_err(|e| format!("EditFile read task panicked: {}", e))??
     } else {
         String::new()
     };
@@ -1224,16 +1270,19 @@ pub async fn execute_edit_file(
         }
     };
 
-    if let Some(parent) = file_path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create parent directory {:?}: {}", parent, e))?;
-    }
+    tokio::task::spawn_blocking(move || {
+        if let Some(parent) = file_path.parent() {
+            std::fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create parent directory {:?}: {}", parent, e))?;
+        }
 
-    tokio::fs::write(&file_path, new_content.as_bytes())
-        .await
-        .map_err(|e| format!("Failed to write file {:?}: {}", file_path, e))?;
+        std::fs::write(&file_path, new_content.as_bytes())
+            .map_err(|e| format!("Failed to write file {:?}: {}", file_path, e))?;
 
-    Ok(())
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("EditFile write task panicked: {}", e))?
 }
 
 pub async fn execute_set_env(

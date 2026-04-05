@@ -480,6 +480,7 @@ pub async fn reconcile_processes(state: &Arc<AppState>) {
                 stop_cancel: Mutex::new(CancellationToken::new()),
                 restart_cancel: Mutex::new(CancellationToken::new()),
                 log_file_sender,
+                exit_notify: Arc::new(tokio::sync::Notify::new()),
             });
 
             // Push an informational message so the console isn't empty.
@@ -540,6 +541,10 @@ pub struct ProcessHandle {
     /// Optional sender for persisting console output to disk.
     /// `None` when `log_to_disk` is disabled for this server.
     pub log_file_sender: Option<super::log_writer::LogFileSender>,
+    /// Fired by the monitor task when the child process exits.  Allows
+    /// `stop_server` / `kill_server` to wake immediately instead of
+    /// polling status every 50–100 ms.
+    pub exit_notify: Arc<tokio::sync::Notify>,
 }
 
 impl ProcessHandle {
@@ -667,6 +672,7 @@ impl ProcessManager {
             stop_cancel: Mutex::new(CancellationToken::new()),
             restart_cancel: Mutex::new(CancellationToken::new()),
             log_file_sender: None,
+            exit_notify: Arc::new(tokio::sync::Notify::new()),
         });
         self.handles.insert(server_id, handle);
         tx
@@ -990,6 +996,7 @@ pub fn start_server(
             stop_cancel: Mutex::new(CancellationToken::new()),
             restart_cancel: Mutex::new(CancellationToken::new()),
             log_file_sender,
+            exit_notify: Arc::new(tokio::sync::Notify::new()),
         });
 
         state
@@ -1262,6 +1269,9 @@ async fn spawn_and_monitor(
                 _ => (false, status),
             }
         };
+
+        // Wake anyone waiting on process exit (stop_server, kill_server).
+        handle_clone.exit_notify.notify_waiters();
 
         let should_restart = if should_check_restart {
             let server = state_clone.db.get_server(server_id).await.ok().flatten();
@@ -1547,7 +1557,24 @@ async fn execute_stop_steps(
                     seconds,
                     server_id
                 );
-                tokio::time::sleep(std::time::Duration::from_secs(*seconds as u64)).await;
+                // Sleep is cancellation- and exit-aware so that a user
+                // cancel or an early process exit doesn't have to wait
+                // for the full duration to elapse.
+                tokio::select! {
+                    _ = tokio::time::sleep(std::time::Duration::from_secs(*seconds as u64)) => {}
+                    _ = cancel_token.cancelled() => {
+                        tracing::info!(
+                            "Stop step {} ({}): sleep interrupted by cancellation for server {}",
+                            i, step.name, server_id
+                        );
+                    }
+                    _ = handle.exit_notify.notified() => {
+                        tracing::info!(
+                            "Stop step {} ({}): sleep interrupted by process exit for server {}",
+                            i, step.name, server_id
+                        );
+                    }
+                }
             }
             crate::types::StepAction::WaitForOutput {
                 pattern,
@@ -1561,8 +1588,19 @@ async fn execute_stop_steps(
 
                 let rx = handle.log_tx.subscribe();
                 let buffer: Vec<LogLine> = handle.log_buffer.lock().iter().cloned().collect();
-                let found =
-                    wait_for_output_pattern(rx, &buffer, &resolved_pattern, *timeout_secs).await;
+
+                // WaitForOutput is cancellation-aware so the user doesn't
+                // have to wait for the full timeout if they cancel the stop.
+                let found = tokio::select! {
+                    found = wait_for_output_pattern(rx, &buffer, &resolved_pattern, *timeout_secs) => found,
+                    _ = cancel_token.cancelled() => {
+                        tracing::info!(
+                            "Stop step {} ({}): wait interrupted by cancellation for server {}",
+                            i, step.name, server_id
+                        );
+                        false
+                    }
+                };
 
                 if found {
                     tracing::info!(
@@ -1726,41 +1764,55 @@ pub async fn stop_server(
         stop_timeout,
     ));
 
-    // Wait for the process to exit gracefully
+    // Wait for the process to exit gracefully.
+    //
+    // Instead of a tight poll loop we `select!` on three events:
+    //   1. The grace-period timer fires  → break to SIGKILL
+    //   2. The process exits (Notify)    → return early, nothing to kill
+    //   3. The user cancels the stop     → revert to Running
+    //
+    // A 1-second ticker drives progress broadcasts for the UI.
     let timeout_secs = server.config.stop_timeout_secs as u64;
-    let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
-    let mut last_progress_broadcast = tokio::time::Instant::now();
+    let grace_deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(timeout_secs);
+    let mut progress_interval = tokio::time::interval(std::time::Duration::from_secs(1));
+    progress_interval.tick().await; // consume the immediate first tick
 
     loop {
-        if cancel_token.is_cancelled() {
-            tracing::info!(
-                "Shutdown cancelled for server {} during grace period",
-                server_id
-            );
-            revert_to_running(&handle, server_id, stop_start, total_timeout, stop_timeout);
-            return Ok(());
+        tokio::select! {
+            _ = tokio::time::sleep_until(grace_deadline) => {
+                // Grace period expired — fall through to SIGKILL.
+                break;
+            }
+            _ = handle.exit_notify.notified() => {
+                let current = handle.runtime.lock().status;
+                if current == ServerStatus::Stopped || current == ServerStatus::Crashed {
+                    return Ok(());
+                }
+                // Spurious wake (e.g. from a previous cycle) — keep waiting.
+            }
+            _ = cancel_token.cancelled() => {
+                tracing::info!(
+                    "Shutdown cancelled for server {} during grace period",
+                    server_id
+                );
+                revert_to_running(&handle, server_id, stop_start, total_timeout, stop_timeout);
+                return Ok(());
+            }
+            _ = progress_interval.tick() => {
+                // Check if the process already exited between ticks.
+                let current = handle.runtime.lock().status;
+                if current == ServerStatus::Stopped || current == ServerStatus::Crashed {
+                    return Ok(());
+                }
+                handle.broadcast_stop_progress(make_progress(
+                    server_id,
+                    crate::types::StopPhase::WaitingForExit,
+                    stop_start,
+                    total_timeout,
+                    stop_timeout,
+                ));
+            }
         }
-
-        let current = handle.runtime.lock().status;
-        if current == ServerStatus::Stopped || current == ServerStatus::Crashed {
-            return Ok(());
-        }
-        if tokio::time::Instant::now() >= deadline {
-            break;
-        }
-
-        if last_progress_broadcast.elapsed() >= std::time::Duration::from_secs(1) {
-            handle.broadcast_stop_progress(make_progress(
-                server_id,
-                crate::types::StopPhase::WaitingForExit,
-                stop_start,
-                total_timeout,
-                stop_timeout,
-            ));
-            last_progress_broadcast = tokio::time::Instant::now();
-        }
-
-        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
     }
 
     // SIGKILL phase
@@ -1773,6 +1825,9 @@ pub async fn stop_server(
     ));
 
     let pid = { handle.runtime.lock().pid };
+    let server_dir = state.server_dir(&server_id);
+    let mut pgkill_succeeded = false;
+
     if let Some(pid) = pid {
         let current = handle.runtime.lock().status;
         if current == ServerStatus::Stopping {
@@ -1782,20 +1837,71 @@ pub async fn stop_server(
                 pid,
                 server.config.stop_timeout_secs
             );
-            unsafe {
-                libc::kill(-(pid as i32), libc::SIGKILL);
+            let ret = unsafe { libc::kill(-(pid as i32), libc::SIGKILL) };
+            if ret == 0 {
+                pgkill_succeeded = true;
+            } else {
+                let err = std::io::Error::last_os_error();
+                tracing::error!(
+                    "kill(-{}, SIGKILL) failed for server {} (process group {}): {}",
+                    pid,
+                    server_id,
+                    pid,
+                    err,
+                );
             }
         }
+    } else {
+        tracing::warn!(
+            "No PID available for server {} at SIGKILL phase — \
+             falling back to directory scan",
+            server_id,
+        );
     }
 
-    // Give the monitor task a moment to pick up the exit
-    let kill_deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(2000);
-    loop {
-        let current = handle.runtime.lock().status;
-        if current == ServerStatus::Stopped || current == ServerStatus::Crashed {
-            break;
+    // Give the monitor task a moment to pick up the exit.
+    // Wait on the exit_notify instead of polling so we wake immediately.
+    let exited = tokio::time::timeout(
+        std::time::Duration::from_millis(2000),
+        handle.exit_notify.notified(),
+    )
+    .await
+    .is_ok();
+
+    let current = handle.runtime.lock().status;
+    if current != ServerStatus::Stopped && current != ServerStatus::Crashed {
+        if !exited {
+            // Process-group kill didn't work or the monitor didn't pick up
+            // the exit.  Fall back to scanning /proc for any processes
+            // whose cwd is the server directory and kill them individually.
+            let dir = server_dir.clone();
+            let fallback_killed = crate::utils::blocking(move || {
+                Ok(crate::api::servers::kill_processes_in_directory(&dir))
+            })
+            .await
+            .unwrap_or_default();
+
+            if !fallback_killed.is_empty() {
+                tracing::warn!(
+                    "Fallback directory kill for server {} cleaned up {} process(es): {:?}",
+                    server_id,
+                    fallback_killed.len(),
+                    fallback_killed,
+                );
+                // Give the monitor a short additional window to notice.
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+            } else if !pgkill_succeeded {
+                tracing::error!(
+                    "SIGKILL failed and no orphan processes found in directory for server {} \
+                     — the process may still be running outside our control",
+                    server_id,
+                );
+            }
         }
-        if tokio::time::Instant::now() >= kill_deadline {
+
+        // Force status to Stopped so we don't stay in Stopping forever.
+        let current = handle.runtime.lock().status;
+        if current != ServerStatus::Stopped && current != ServerStatus::Crashed {
             tracing::warn!(
                 "Monitor task did not detect exit for server {} — forcing Stopped",
                 server_id
@@ -1805,9 +1911,7 @@ pub async fn stop_server(
             rt.pid = None;
             drop(rt);
             handle.broadcast_status();
-            break;
         }
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     }
 
     Ok(())
@@ -1951,31 +2055,33 @@ pub async fn kill_server(
 
     // Let the monitor task detect the exit naturally and transition the
     // status to Stopped.  SIGKILL is immediate so this should be fast.
-    let deadline = tokio::time::Instant::now() + std::time::Duration::from_millis(2000);
-    loop {
-        let current = handle.runtime.lock().status;
-        if current == ServerStatus::Stopped || current == ServerStatus::Crashed {
-            break;
-        }
-        if tokio::time::Instant::now() >= deadline {
+    // Wait on exit_notify instead of polling.
+    let exited = tokio::time::timeout(
+        std::time::Duration::from_millis(2000),
+        handle.exit_notify.notified(),
+    )
+    .await
+    .is_ok();
+
+    let current = handle.runtime.lock().status;
+    if current != ServerStatus::Stopped && current != ServerStatus::Crashed {
+        if !exited {
             // The monitor didn't pick up the exit — force the status and
             // abort the monitor as a last resort.
             tracing::warn!(
                 "Monitor task did not detect exit for server {} after SIGKILL — forcing Stopped",
                 server_id,
             );
-            {
-                let mut rt = handle.runtime.lock();
-                rt.status = ServerStatus::Stopped;
-                rt.pid = None;
-            }
-            handle.broadcast_status();
-            if let Some(task) = handle.monitor_handle.lock().take() {
-                task.abort();
-            }
-            break;
         }
-        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        {
+            let mut rt = handle.runtime.lock();
+            rt.status = ServerStatus::Stopped;
+            rt.pid = None;
+        }
+        handle.broadcast_status();
+        if let Some(task) = handle.monitor_handle.lock().take() {
+            task.abort();
+        }
     }
 
     Ok(())
@@ -2200,24 +2306,22 @@ mod tests {
     // ─── Tests for read_file_header & resolve_execution ─────────────────
 
     /// Helper: create a ProcessHandle suitable for testing resolve_execution.
-    fn make_test_handle() -> Arc<ProcessHandle> {
-        let (log_tx, _) = broadcast::channel::<WsMessage>(64);
-        let global_tx = {
-            let (tx, _) = broadcast::channel::<WsMessage>(64);
-            tx
-        };
-        Arc::new(ProcessHandle {
+    fn make_test_handle() -> (Arc<ProcessHandle>, Arc<tokio::sync::Notify>) {
+        let (tx, _) = broadcast::channel::<WsMessage>(128);
+        let (global_tx, _) = broadcast::channel::<WsMessage>(128);
+        let exit_notify = Arc::new(tokio::sync::Notify::new());
+        let handle = Arc::new(ProcessHandle {
             runtime: Mutex::new(ServerRuntime {
-                server_id: Uuid::new_v4(),
-                status: ServerStatus::Starting,
+                server_id: uuid::Uuid::new_v4(),
+                status: ServerStatus::Stopped,
                 pid: None,
                 started_at: None,
                 restart_count: 0,
                 next_restart_at: None,
             }),
             stdin: tokio::sync::Mutex::new(None),
-            log_tx,
-            log_buffer: Mutex::new(VecDeque::with_capacity(16)),
+            log_tx: tx,
+            log_buffer: Mutex::new(VecDeque::with_capacity(100)),
             log_seq: AtomicU32::new(0),
             monitor_handle: Mutex::new(None),
             global_tx,
@@ -2226,7 +2330,9 @@ mod tests {
             stop_cancel: Mutex::new(CancellationToken::new()),
             restart_cancel: Mutex::new(CancellationToken::new()),
             log_file_sender: None,
-        })
+            exit_notify: exit_notify.clone(),
+        });
+        (handle, exit_notify)
     }
 
     #[test]
@@ -2276,7 +2382,7 @@ mod tests {
         data.extend(vec![0u8; 2 * 1024 * 1024]);
         std::fs::write(&path, &data).unwrap();
 
-        let handle = make_test_handle();
+        let (handle, _notify) = make_test_handle();
         let path_str = path.to_string_lossy().to_string();
         let resolved = resolve_execution(&path_str, &["--port".into(), "25565".into()], &handle);
 
@@ -2299,7 +2405,7 @@ mod tests {
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
 
-        let handle = make_test_handle();
+        let (handle, _notify) = make_test_handle();
         let path_str = path.to_string_lossy().to_string();
         let resolved = resolve_execution(&path_str, &[], &handle);
 
@@ -2324,7 +2430,7 @@ mod tests {
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
 
-        let handle = make_test_handle();
+        let (handle, _notify) = make_test_handle();
         let path_str = path.to_string_lossy().to_string();
         let _resolved = resolve_execution(&path_str, &[], &handle);
 
@@ -2357,7 +2463,7 @@ mod tests {
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
 
-        let handle = make_test_handle();
+        let (handle, _notify) = make_test_handle();
         let path_str = path.to_string_lossy().to_string();
         let _resolved = resolve_execution(&path_str, &[], &handle);
 
@@ -2390,7 +2496,7 @@ mod tests {
 
     #[test]
     fn test_resolve_execution_nonexistent_file_passes_through() {
-        let handle = make_test_handle();
+        let (handle, _notify) = make_test_handle();
         let resolved = resolve_execution("/nonexistent/path/binary", &["arg1".into()], &handle);
 
         assert_eq!(resolved.command, "/nonexistent/path/binary");
@@ -2411,7 +2517,7 @@ mod tests {
             std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
 
-        let handle = make_test_handle();
+        let (handle, _notify) = make_test_handle();
         let path_str = path.to_string_lossy().to_string();
         let resolved = resolve_execution(&path_str, &["extra".into()], &handle);
 
@@ -2429,7 +2535,7 @@ mod tests {
 
     #[test]
     fn test_log_seq_monotonically_increasing() {
-        let handle = make_test_handle();
+        let (handle, _notify) = make_test_handle();
 
         for i in 0..10 {
             handle.push_log(LogLine {
@@ -2448,7 +2554,7 @@ mod tests {
     #[test]
     fn test_log_seq_resets_on_new_handle() {
         // First handle gets seq 0, 1, 2.
-        let handle1 = make_test_handle();
+        let (handle1, _notify1) = make_test_handle();
         for _ in 0..3 {
             handle1.push_log(LogLine {
                 seq: 0,
@@ -2460,7 +2566,7 @@ mod tests {
         assert_eq!(handle1.log_seq.load(Ordering::Relaxed), 3);
 
         // Second handle starts at seq 0 again — independent counter.
-        let handle2 = make_test_handle();
+        let (handle2, _notify2) = make_test_handle();
         handle2.push_log(LogLine {
             seq: 0,
             timestamp: Utc::now(),
@@ -2474,7 +2580,7 @@ mod tests {
 
     #[test]
     fn test_log_seq_overwrites_placeholder() {
-        let handle = make_test_handle();
+        let (handle, _notify) = make_test_handle();
 
         // Push a log with a non-zero placeholder seq — push_log should overwrite it.
         handle.push_log(LogLine {
@@ -2493,7 +2599,7 @@ mod tests {
 
     #[test]
     fn test_log_seq_preserved_in_broadcast() {
-        let handle = make_test_handle();
+        let (handle, _notify) = make_test_handle();
         let mut rx = handle.log_tx.subscribe();
 
         handle.push_log(LogLine {

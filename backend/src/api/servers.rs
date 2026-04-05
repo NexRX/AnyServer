@@ -216,7 +216,7 @@ fn kill_listed_processes(processes: &[DirectoryProcess]) -> Vec<(u32, String, bo
     results
 }
 
-fn kill_processes_in_directory(dir: &std::path::Path) -> Vec<(u32, String)> {
+pub(crate) fn kill_processes_in_directory(dir: &std::path::Path) -> Vec<(u32, String)> {
     let found = list_processes_in_directory(dir);
     kill_listed_processes(&found)
         .into_iter()

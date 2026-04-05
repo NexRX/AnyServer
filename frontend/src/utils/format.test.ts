@@ -311,98 +311,165 @@ describe("formatShutdownCountdown", () => {
 // ─── computeGraceRemaining ─────────────────────────────────────────
 
 describe("computeGraceRemaining", () => {
+  // New signature: computeGraceRemaining(elapsedSecs, timeoutSecs, receivedAtMs, nowMs)
+  // remaining = timeoutSecs - effectiveElapsed(elapsedSecs, receivedAt, now)
+
   it("returns full grace period when no local time has passed", () => {
     const now = 1000000;
-    expect(computeGraceRemaining(10, now, now)).toBe(10);
+    // Grace=10, stop steps took 5s → elapsed=5, timeout=15
+    expect(computeGraceRemaining(5, 15, now, now)).toBe(10);
   });
 
   it("counts down as local time passes", () => {
     const received = 1000000;
-    expect(computeGraceRemaining(10, received, received + 1000)).toBe(9);
-    expect(computeGraceRemaining(10, received, received + 5000)).toBe(5);
-    expect(computeGraceRemaining(10, received, received + 9000)).toBe(1);
+    // Grace=10, elapsed=0 at start of grace, timeout=10
+    expect(computeGraceRemaining(0, 10, received, received + 1000)).toBe(9);
+    expect(computeGraceRemaining(0, 10, received, received + 5000)).toBe(5);
+    expect(computeGraceRemaining(0, 10, received, received + 9000)).toBe(1);
   });
 
   it("reaches zero exactly when grace period elapses", () => {
     const received = 1000000;
-    expect(computeGraceRemaining(10, received, received + 10000)).toBe(0);
+    expect(computeGraceRemaining(0, 10, received, received + 10000)).toBe(0);
   });
 
   it("never goes below zero", () => {
     const received = 1000000;
-    expect(computeGraceRemaining(10, received, received + 20000)).toBe(0);
+    expect(computeGraceRemaining(0, 10, received, received + 20000)).toBe(0);
   });
 
   it("handles fractional local deltas", () => {
     const received = 1000000;
     // 1.5s passed → 8.5s remaining
-    expect(computeGraceRemaining(10, received, received + 1500)).toBe(8.5);
+    expect(computeGraceRemaining(0, 10, received, received + 1500)).toBe(8.5);
   });
 
   it("clamps negative local delta to zero (clock skew)", () => {
     const received = 1000000;
     // Clock went backwards — should still return full grace period
-    expect(computeGraceRemaining(10, received, received - 500)).toBe(10);
+    expect(computeGraceRemaining(0, 10, received, received - 500)).toBe(10);
   });
 
   it("handles a 30s grace period (realistic Minecraft stop)", () => {
     const received = 2000000;
-    expect(computeGraceRemaining(30, received, received)).toBe(30);
-    expect(computeGraceRemaining(30, received, received + 10000)).toBe(20);
-    expect(computeGraceRemaining(30, received, received + 29000)).toBe(1);
-    expect(computeGraceRemaining(30, received, received + 30000)).toBe(0);
+    // Stop steps took 15s → elapsed=15, timeout=45 (15+30 grace)
+    expect(computeGraceRemaining(15, 45, received, received)).toBe(30);
+    expect(computeGraceRemaining(15, 45, received, received + 10000)).toBe(20);
+    expect(computeGraceRemaining(15, 45, received, received + 29000)).toBe(1);
+    expect(computeGraceRemaining(15, 45, received, received + 30000)).toBe(0);
   });
 
-  it("returns zero immediately when grace is zero", () => {
+  it("returns zero immediately when timeout equals elapsed", () => {
     const now = 1000000;
-    expect(computeGraceRemaining(0, now, now)).toBe(0);
+    expect(computeGraceRemaining(10, 10, now, now)).toBe(0);
+  });
+
+  it("stays stable across rapid WS updates (no reset)", () => {
+    // Simulate two WS messages 1s apart, both during the same grace period.
+    // Grace=30, stop steps took 10s → timeout=40.
+    // First message: elapsed=20 (10s into grace), received at t=0
+    expect(computeGraceRemaining(20, 40, 1000000, 1000000)).toBe(20);
+    // 0.5s of local time passes
+    expect(computeGraceRemaining(20, 40, 1000000, 1000500)).toBe(19.5);
+    // New message arrives 1s later: elapsed=21, received resets
+    expect(computeGraceRemaining(21, 40, 1001000, 1001000)).toBe(19);
+    // 0.5s of local time after second message
+    expect(computeGraceRemaining(21, 40, 1001000, 1001500)).toBe(18.5);
   });
 });
 
 // ─── computeGracePercent ────────────────────────────────────────────
 
 describe("computeGracePercent", () => {
-  it("returns 0 when no local time has passed", () => {
+  // New signature: computeGracePercent(elapsedSecs, timeoutSecs, graceSecs, receivedAtMs, nowMs)
+  // graceStart = timeoutSecs - graceSecs
+  // graceElapsed = max(0, effectiveElapsed - graceStart)
+  // percent = graceElapsed / graceSecs * 100
+
+  it("returns 0 when no local time has passed and grace just started", () => {
     const now = 1000000;
-    expect(computeGracePercent(10, now, now)).toBe(0);
+    // Grace=10, stop steps took 5s → elapsed=5, timeout=15
+    expect(computeGracePercent(5, 15, 10, now, now)).toBe(0);
   });
 
   it("returns 50 at the halfway point", () => {
     const received = 1000000;
-    expect(computeGracePercent(10, received, received + 5000)).toBe(50);
+    // Grace=10, elapsed=0 at grace start, timeout=10, 5s local → 50%
+    expect(computeGracePercent(0, 10, 10, received, received + 5000)).toBe(50);
   });
 
   it("returns 100 when the grace period has fully elapsed", () => {
     const received = 1000000;
-    expect(computeGracePercent(10, received, received + 10000)).toBe(100);
+    expect(computeGracePercent(0, 10, 10, received, received + 10000)).toBe(
+      100,
+    );
   });
 
   it("clamps to 100 when past the grace period", () => {
     const received = 1000000;
-    expect(computeGracePercent(10, received, received + 20000)).toBe(100);
+    expect(computeGracePercent(0, 10, 10, received, received + 20000)).toBe(
+      100,
+    );
   });
 
   it("returns 100 when grace is zero", () => {
     const now = 1000000;
-    expect(computeGracePercent(0, now, now)).toBe(100);
+    expect(computeGracePercent(10, 10, 0, now, now)).toBe(100);
   });
 
   it("returns 100 when grace is negative", () => {
     const now = 1000000;
-    expect(computeGracePercent(-1, now, now)).toBe(100);
+    expect(computeGracePercent(10, 10, -1, now, now)).toBe(100);
   });
 
   it("progresses second by second", () => {
     const received = 1000000;
-    expect(computeGracePercent(20, received, received + 2000)).toBe(10);
-    expect(computeGracePercent(20, received, received + 10000)).toBe(50);
-    expect(computeGracePercent(20, received, received + 20000)).toBe(100);
+    // Grace=20, elapsed=0 at grace start, timeout=20
+    expect(computeGracePercent(0, 20, 20, received, received + 2000)).toBe(10);
+    expect(computeGracePercent(0, 20, 20, received, received + 10000)).toBe(50);
+    expect(computeGracePercent(0, 20, 20, received, received + 20000)).toBe(
+      100,
+    );
   });
 
   it("handles fractional results", () => {
     const received = 1000000;
-    // 1s of 3s grace = 33.33...%
-    const pct = computeGracePercent(3, received, received + 1000);
+    // Grace=3, elapsed=0, timeout=3 → 1s of 3s grace = 33.33...%
+    const pct = computeGracePercent(0, 3, 3, received, received + 1000);
     expect(pct).toBeCloseTo(33.333, 2);
+  });
+
+  it("accounts for stop-step elapsed time in the overall timeline", () => {
+    const received = 1000000;
+    // Stop steps took 20s, grace=30s → timeout=50
+    // At received: elapsed=20 → grace just started → 0%
+    expect(computeGracePercent(20, 50, 30, received, received)).toBe(0);
+    // 15s local → elapsed effectively 35 → 15s into 30s grace → 50%
+    expect(computeGracePercent(20, 50, 30, received, received + 15000)).toBe(
+      50,
+    );
+    // 30s local → elapsed effectively 50 → 30s into 30s grace → 100%
+    expect(computeGracePercent(20, 50, 30, received, received + 30000)).toBe(
+      100,
+    );
+  });
+
+  it("stays stable across rapid WS updates (no reset)", () => {
+    // Grace=30, steps took 10s → timeout=40.
+    // First message: elapsed=20 (10s into grace)
+    expect(computeGracePercent(20, 40, 30, 1000000, 1000000)).toBeCloseTo(
+      33.333,
+      2,
+    );
+    // New message 1s later: elapsed=21, receivedAt resets
+    expect(computeGracePercent(21, 40, 30, 1001000, 1001000)).toBeCloseTo(
+      36.667,
+      2,
+    );
+    // 0.5s after second message
+    expect(computeGracePercent(21, 40, 30, 1001000, 1001500)).toBeCloseTo(
+      38.333,
+      2,
+    );
   });
 });

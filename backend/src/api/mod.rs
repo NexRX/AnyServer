@@ -4,6 +4,7 @@ pub mod curseforge;
 pub mod files;
 pub mod github;
 pub mod import;
+pub mod integrations;
 pub mod invite_codes;
 pub mod permissions;
 pub mod pipeline;
@@ -262,6 +263,11 @@ pub fn router() -> Router<Arc<AppState>> {
         .route("/admin/settings/github", put(github::save_github_settings))
         .layer(outbound_rate_limit.clone());
 
+    let integration_routes = Router::new().route(
+        "/integrations/status",
+        get(integrations::get_integration_status),
+    );
+
     let curseforge_routes = Router::new()
         .route("/curseforge/files", get(curseforge::get_files))
         .route(
@@ -297,5 +303,6 @@ pub fn router() -> Router<Arc<AppState>> {
         .merge(smtp_alert_routes)
         .merge(github_routes)
         .merge(curseforge_routes)
+        .merge(integration_routes)
         .merge(ws_routes)
 }

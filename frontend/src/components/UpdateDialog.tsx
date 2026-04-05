@@ -6,6 +6,7 @@ import {
   For,
   onMount,
 } from "solid-js";
+import { A } from "@solidjs/router";
 import SearchableSelect from "./SearchableSelect";
 import type {
   ConfigParameter,
@@ -14,6 +15,8 @@ import type {
 } from "../types/bindings";
 import { fetchOptions } from "../api/templates";
 import { fetchCurseForgeFiles } from "../api/curseforge";
+import { useIntegrationStatus } from "../context/integrations";
+import { useAuth } from "../context/auth";
 
 export interface UpdateDialogProps {
   /** The version parameter definition (is_version === true), if any. */
@@ -33,6 +36,8 @@ export interface UpdateDialogProps {
 }
 
 const UpdateDialog: Component<UpdateDialogProps> = (props) => {
+  const integrations = useIntegrationStatus();
+  const auth = useAuth();
   const [versions, setVersions] = createSignal<FetchedOption[]>([]);
   const [loading, setLoading] = createSignal(false);
   const [fetchError, setFetchError] = createSignal<string | null>(null);
@@ -103,6 +108,11 @@ const UpdateDialog: Component<UpdateDialogProps> = (props) => {
     return false;
   };
 
+  /** True when the version param requires CurseForge but the key isn't configured. */
+  const isCurseForgeMissing = () =>
+    props.versionParam?.param_type === "curse_forge_file_version" &&
+    !integrations.status().curseforge_configured;
+
   // On mount, set initial selected version and fetch options
   onMount(() => {
     // Default to latest from update check, or current version
@@ -128,6 +138,16 @@ const UpdateDialog: Component<UpdateDialogProps> = (props) => {
         props.versionParam?.param_type === "curse_forge_file_version" &&
         props.versionParam.curseforge_project_id
       ) {
+        // Bail early with a clear message if CurseForge isn't configured
+        if (!integrations.status().curseforge_configured) {
+          setFetchError(
+            "CurseForge API key is not configured. " +
+              "Ask an admin to set it up in Admin Panel → CurseForge.",
+          );
+          setManualMode(true);
+          setLoading(false);
+          return;
+        }
         const resp = await fetchCurseForgeFiles(
           props.versionParam.curseforge_project_id,
         );
@@ -355,6 +375,54 @@ const UpdateDialog: Component<UpdateDialogProps> = (props) => {
                   {latestVersionDisplay()}
                 </strong>
               </span>
+            </div>
+          </Show>
+
+          {/* CurseForge not configured warning */}
+          <Show when={isCurseForgeMissing()}>
+            <div
+              style={{
+                display: "flex",
+                "align-items": "flex-start",
+                gap: "0.5rem",
+                padding: "0.6rem 0.75rem",
+                background: "rgba(249, 115, 22, 0.08)",
+                border: "1px solid rgba(249, 115, 22, 0.3)",
+                "border-radius": "0.375rem",
+                "margin-bottom": "0.75rem",
+                "font-size": "0.85rem",
+                color: "#fdba74",
+              }}
+            >
+              <span style={{ "flex-shrink": "0" }}>🔶</span>
+              <div>
+                <strong>CurseForge API key not configured.</strong> Version
+                loading and server pack downloads will fail until an admin
+                configures the API key.
+                <Show
+                  when={auth.isAdmin()}
+                  fallback={
+                    <span>
+                      {" "}
+                      Ask an admin to set it up in Admin Panel → CurseForge.
+                    </span>
+                  }
+                >
+                  {" "}
+                  <A
+                    href="/admin"
+                    style={{
+                      color: "#fb923c",
+                      "text-decoration": "underline",
+                    }}
+                    onClick={() =>
+                      sessionStorage.setItem("admin_tab", "curseforge")
+                    }
+                  >
+                    Configure CurseForge API key →
+                  </A>
+                </Show>
+              </div>
             </div>
           </Show>
 

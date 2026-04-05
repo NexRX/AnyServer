@@ -10,6 +10,7 @@ import MarkdownRenderer from "../components/MarkdownRenderer";
 import { A, useNavigate } from "@solidjs/router";
 import { listTemplates, deleteTemplate, createTemplate } from "../api/client";
 import { formatDate } from "../utils/format";
+import { useAuth } from "../context/auth";
 import type {
   ServerTemplate,
   ServerConfig,
@@ -18,6 +19,7 @@ import type {
 
 const Templates: Component = () => {
   const navigate = useNavigate();
+  const auth = useAuth();
   const [data, { refetch }] = createResource(listTemplates);
   const [showCreate, setShowCreate] = createSignal(false);
   const [importJson, setImportJson] = createSignal("");
@@ -602,13 +604,34 @@ const Templates: Component = () => {
                   const isSteamDisabled = () =>
                     template.requires_steamcmd &&
                     !resolved().steamcmd_available;
+                  const isCurseForgeDisabled = () =>
+                    template.requires_curseforge &&
+                    !resolved().curseforge_available;
+                  // GitHub is a soft flag — public repos work fine without a
+                  // token (just lower rate limits).  Only private repos truly
+                  // need the token, and we can't know that from metadata alone.
+                  // So we never hard-disable; we just show an info badge.
+                  const isGithubNotConfigured = () =>
+                    template.requires_github && !resolved().github_available;
+                  const isAnyDisabled = () =>
+                    isSteamDisabled() || isCurseForgeDisabled();
+                  const disabledReasons = () => {
+                    const reasons: string[] = [];
+                    if (isSteamDisabled())
+                      reasons.push("SteamCMD is not installed on this host");
+                    if (isCurseForgeDisabled())
+                      reasons.push(
+                        "CurseForge API key has not been configured by an admin",
+                      );
+                    return reasons;
+                  };
                   return (
                     <div
-                      class={`template-card${template.is_builtin ? " template-card-builtin" : ""}${isSteamDisabled() ? " template-card--disabled" : ""}`}
-                      aria-disabled={isSteamDisabled() ? "true" : undefined}
+                      class={`template-card${template.is_builtin ? " template-card-builtin" : ""}${isAnyDisabled() ? " template-card--disabled" : ""}`}
+                      aria-disabled={isAnyDisabled() ? "true" : undefined}
                       aria-label={
-                        isSteamDisabled()
-                          ? `${template.name} — disabled because SteamCMD is not installed on this host`
+                        isAnyDisabled()
+                          ? `${template.name} — disabled: ${disabledReasons().join("; ")}`
                           : undefined
                       }
                     >
@@ -639,6 +662,40 @@ const Templates: Component = () => {
                                 {resolved().steamcmd_available
                                   ? "🎮 SteamCMD"
                                   : "⚠️ SteamCMD Required"}
+                              </span>
+                            </Show>
+                            <Show when={template.requires_curseforge}>
+                              <span
+                                class="template-builtin-badge"
+                                style={{
+                                  background: resolved().curseforge_available
+                                    ? "rgba(249, 115, 22, 0.15)"
+                                    : "rgba(239, 68, 68, 0.15)",
+                                  color: resolved().curseforge_available
+                                    ? "#f97316"
+                                    : "#f87171",
+                                }}
+                              >
+                                {resolved().curseforge_available
+                                  ? "🔶 CurseForge"
+                                  : "⚠️ CurseForge Key Required"}
+                              </span>
+                            </Show>
+                            <Show when={template.requires_github}>
+                              <span
+                                class="template-builtin-badge"
+                                style={{
+                                  background: resolved().github_available
+                                    ? "rgba(99, 102, 241, 0.15)"
+                                    : "rgba(250, 204, 21, 0.12)",
+                                  color: resolved().github_available
+                                    ? "#6366f1"
+                                    : "#facc15",
+                                }}
+                              >
+                                {resolved().github_available
+                                  ? "🐙 GitHub"
+                                  : "🐙 GitHub (no token)"}
                               </span>
                             </Show>
                           </div>
@@ -721,26 +778,91 @@ const Templates: Component = () => {
                         </div>
                       </Show>
 
+                      <Show when={isCurseForgeDisabled()}>
+                        <div class="template-card-unavailable" role="alert">
+                          <p class="template-card-unavailable-text">
+                            ⚠️ CurseForge API key is required but not
+                            configured.
+                          </p>
+                          <Show
+                            when={auth.isAdmin()}
+                            fallback={
+                              <p
+                                class="template-card-unavailable-text"
+                                style={{ "margin-top": "0.25rem" }}
+                              >
+                                Ask an admin to set it up in Admin Panel →
+                                CurseForge.
+                              </p>
+                            }
+                          >
+                            <A
+                              href="/admin"
+                              class="template-card-learn-more"
+                              onClick={() => {
+                                sessionStorage.setItem(
+                                  "admin_tab",
+                                  "curseforge",
+                                );
+                              }}
+                            >
+                              Configure CurseForge API key →
+                            </A>
+                          </Show>
+                        </div>
+                      </Show>
+
+                      <Show when={isGithubNotConfigured()}>
+                        <div
+                          style={{
+                            padding: "0.5rem 0.75rem",
+                            background: "rgba(250, 204, 21, 0.06)",
+                            border: "1px solid rgba(250, 204, 21, 0.2)",
+                            "border-radius": "0.375rem",
+                            "font-size": "0.82rem",
+                            color: "#fde68a",
+                            "margin-bottom": "0.5rem",
+                          }}
+                        >
+                          <strong>ℹ️ No GitHub token configured.</strong> Public
+                          repos work fine — private repos and higher rate limits
+                          require a token.
+                          <Show when={auth.isAdmin()}>
+                            {" "}
+                            <A
+                              href="/admin"
+                              style={{
+                                color: "#facc15",
+                                "text-decoration": "underline",
+                              }}
+                              onClick={() => {
+                                sessionStorage.setItem("admin_tab", "github");
+                              }}
+                            >
+                              Configure →
+                            </A>
+                          </Show>
+                        </div>
+                      </Show>
+
                       <div class="template-card-actions">
                         <button
                           class="btn btn-primary btn-sm"
                           onClick={() => handleUseTemplate(template)}
-                          disabled={isSteamDisabled()}
-                          aria-disabled={isSteamDisabled() ? "true" : undefined}
+                          disabled={isAnyDisabled()}
+                          aria-disabled={isAnyDisabled() ? "true" : undefined}
                           aria-label={
-                            isSteamDisabled()
-                              ? "Cannot use this template because SteamCMD is not installed"
+                            isAnyDisabled()
+                              ? `Cannot use this template: ${disabledReasons().join("; ")}`
                               : undefined
                           }
                           title={
-                            isSteamDisabled()
-                              ? "SteamCMD is not installed on this host. Install SteamCMD and restart AnyServer to enable this template."
+                            isAnyDisabled()
+                              ? disabledReasons().join(". ") + "."
                               : undefined
                           }
                         >
-                          {isSteamDisabled()
-                            ? "SteamCMD Required"
-                            : "Use Template"}
+                          {isAnyDisabled() ? "Setup Required" : "Use Template"}
                         </button>
                         <button
                           class="btn btn-sm"

@@ -1,10 +1,13 @@
 import { type Component, Index, Show, createSignal } from "solid-js";
+import { A } from "@solidjs/router";
 import type {
   ConfigParameter,
   ConfigParameterType,
   OptionsFrom,
   OptionsSortOrder,
 } from "../types/bindings";
+import { useIntegrationStatus } from "../context/integrations";
+import { useAuth } from "../context/auth";
 
 interface Props {
   parameters: ConfigParameter[];
@@ -24,6 +27,11 @@ const PARAM_TYPES: {
     value: "select",
     label: "Select",
     description: "Dropdown with predefined options",
+  },
+  {
+    value: "github_release_tag",
+    label: "GitHub Release Tag",
+    description: "Dropdown of release tags from a GitHub repository",
   },
   {
     value: "curse_forge_file_version",
@@ -50,6 +58,9 @@ function blankParameter(index: number): ConfigParameter {
 }
 
 const ParameterDefinitionEditor: Component<Props> = (props) => {
+  const integrations = useIntegrationStatus();
+  const auth = useAuth();
+
   const handleChange = (index: number, updated: ConfigParameter) => {
     const next = [...props.parameters];
     next[index] = updated;
@@ -368,6 +379,13 @@ const ParameterDefinitionEditor: Component<Props> = (props) => {
                                   if (newType !== "string" && param().regex) {
                                     updates.regex = null;
                                   }
+                                  // Reset github_repo when switching away
+                                  if (
+                                    newType !== "github_release_tag" &&
+                                    param().github_repo != null
+                                  ) {
+                                    updates.github_repo = null;
+                                  }
                                   // Reset curseforge_project_id when switching away
                                   if (
                                     newType !== "curse_forge_file_version" &&
@@ -375,8 +393,11 @@ const ParameterDefinitionEditor: Component<Props> = (props) => {
                                   ) {
                                     updates.curseforge_project_id = null;
                                   }
-                                  // Auto-set required for CurseForge params
-                                  if (newType === "curse_forge_file_version") {
+                                  // Auto-set required for CurseForge and GitHub params
+                                  if (
+                                    newType === "curse_forge_file_version" ||
+                                    newType === "github_release_tag"
+                                  ) {
                                     updates.required = true;
                                   }
                                   patch(index, updates);
@@ -734,6 +755,79 @@ const ParameterDefinitionEditor: Component<Props> = (props) => {
                           </Show>
 
                           {/* ─── Regex (only when type is string) ─── */}
+
+                          {/* ─── GitHub Repo (only when type is github_release_tag) ─── */}
+                          <Show
+                            when={param().param_type === "github_release_tag"}
+                          >
+                            <div
+                              class="form-group"
+                              style={{ "margin-top": "0.75rem" }}
+                            >
+                              <label>GitHub Repository</label>
+                              {/* Integration status warning */}
+                              <Show
+                                when={!integrations.status().github_configured}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    "align-items": "flex-start",
+                                    gap: "0.4rem",
+                                    padding: "0.5rem 0.65rem",
+                                    background: "rgba(250, 204, 21, 0.06)",
+                                    border: "1px solid rgba(250, 204, 21, 0.2)",
+                                    "border-radius": "0.375rem",
+                                    "margin-bottom": "0.5rem",
+                                    "font-size": "0.8rem",
+                                    color: "#fde68a",
+                                  }}
+                                >
+                                  <span style={{ "flex-shrink": "0" }}>ℹ️</span>
+                                  <div>
+                                    <strong>No GitHub token configured.</strong>{" "}
+                                    Public repos work fine — private repos and
+                                    higher rate limits require a token.
+                                    <Show when={auth.isAdmin()}>
+                                      {" "}
+                                      <A
+                                        href="/admin"
+                                        style={{
+                                          color: "#facc15",
+                                          "text-decoration": "underline",
+                                        }}
+                                        onClick={() =>
+                                          sessionStorage.setItem(
+                                            "admin_tab",
+                                            "github",
+                                          )
+                                        }
+                                      >
+                                        Configure →
+                                      </A>
+                                    </Show>
+                                  </div>
+                                </div>
+                              </Show>
+                              <input
+                                type="text"
+                                value={param().github_repo ?? ""}
+                                onInput={(e) => {
+                                  const v =
+                                    e.currentTarget.value.trim() || null;
+                                  patch(index, { github_repo: v });
+                                }}
+                                placeholder="owner/repo (e.g. PaperMC/Paper)"
+                              />
+                              <small>
+                                GitHub repository in <code>owner/repo</code>{" "}
+                                format. Users will see a dropdown of release
+                                tags from this repository when creating a
+                                server.
+                              </small>
+                            </div>
+                          </Show>
+
                           {/* ─── CurseForge Project ID (only when type is curseforge_file_version) ─── */}
                           <Show
                             when={
@@ -745,6 +839,64 @@ const ParameterDefinitionEditor: Component<Props> = (props) => {
                               style={{ "margin-top": "0.75rem" }}
                             >
                               <label>CurseForge Project ID</label>
+                              {/* Integration status warning */}
+                              <Show
+                                when={
+                                  !integrations.status().curseforge_configured
+                                }
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    "align-items": "flex-start",
+                                    gap: "0.4rem",
+                                    padding: "0.5rem 0.65rem",
+                                    background: "rgba(249, 115, 22, 0.08)",
+                                    border: "1px solid rgba(249, 115, 22, 0.3)",
+                                    "border-radius": "0.375rem",
+                                    "margin-bottom": "0.5rem",
+                                    "font-size": "0.8rem",
+                                    color: "#fdba74",
+                                  }}
+                                >
+                                  <span style={{ "flex-shrink": "0" }}>🔶</span>
+                                  <div>
+                                    <strong>
+                                      CurseForge API key not configured.
+                                    </strong>{" "}
+                                    Users will not be able to load file versions
+                                    or download server packs until an admin
+                                    configures the API key.
+                                    <Show
+                                      when={auth.isAdmin()}
+                                      fallback={
+                                        <span>
+                                          {" "}
+                                          Ask an admin to configure it in Admin
+                                          Panel → CurseForge.
+                                        </span>
+                                      }
+                                    >
+                                      {" "}
+                                      <A
+                                        href="/admin"
+                                        style={{
+                                          color: "#fb923c",
+                                          "text-decoration": "underline",
+                                        }}
+                                        onClick={() =>
+                                          sessionStorage.setItem(
+                                            "admin_tab",
+                                            "curseforge",
+                                          )
+                                        }
+                                      >
+                                        Configure CurseForge API key →
+                                      </A>
+                                    </Show>
+                                  </div>
+                                </div>
+                              </Show>
                               <input
                                 type="number"
                                 value={

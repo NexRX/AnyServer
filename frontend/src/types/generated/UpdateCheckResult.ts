@@ -3,24 +3,18 @@
 /**
  * The result of a single update check for a server.
  */
-export type UpdateCheckResult = {
-  server_id: string;
-  update_available: boolean;
-  installed_version: string | null;
-  latest_version: string | null;
-  /**
-   * Human-readable display name for the installed version (e.g. CurseForge file display name).
-   * When present, UIs should prefer this over `installed_version`.
-   */
-  installed_version_display: string | null;
-  /**
-   * Human-readable display name for the latest version (e.g. CurseForge file display name).
-   * When present, UIs should prefer this over `latest_version`.
-   */
-  latest_version_display: string | null;
-  checked_at: string;
-  /**
-   * Human-readable error if the check failed.
-   */
-  error: string | null;
-};
+export type UpdateCheckResult = { server_id: string, update_available: boolean, installed_version: string | null, latest_version: string | null, 
+/**
+ * Human-readable display name for the installed version (e.g. CurseForge file display name).
+ * When present, UIs should prefer this over `installed_version`.
+ */
+installed_version_display: string | null, 
+/**
+ * Human-readable display name for the latest version (e.g. CurseForge file display name).
+ * When present, UIs should prefer this over `latest_version`.
+ */
+latest_version_display: string | null, checked_at: string, 
+/**
+ * Human-readable error if the check failed.
+ */
+error: string | null, };

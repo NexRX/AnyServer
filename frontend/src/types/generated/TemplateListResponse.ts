@@ -6,4 +6,14 @@ export type TemplateListResponse = { templates: Array<ServerTemplate>,
  * Whether SteamCMD is available on the host.  Sent alongside the
  * template list so the frontend can gray-out templates that need it.
  */
-steamcmd_available: boolean, };
+steamcmd_available: boolean, 
+/**
+ * Whether a CurseForge API key has been configured by an admin.
+ */
+curseforge_available: boolean, 
+/**
+ * Whether a GitHub token has been configured by an admin.
+ * Note: GitHub works without a token for public repos (lower rate
+ * limits), so this being `false` doesn't fully block GitHub features.
+ */
+github_available: boolean, };

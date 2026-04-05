@@ -183,6 +183,8 @@ impl IntoDomain for TemplateRow {
     fn into_domain(self) -> Result<ServerTemplate, AppError> {
         let config: ServerConfig = deserialize_json(&self.config)?;
         let requires_steamcmd = crate::utils::steamcmd::config_requires_steamcmd(&config);
+        let requires_curseforge = crate::types::template::config_requires_curseforge(&config);
+        let requires_github = crate::types::template::config_requires_github(&config);
         Ok(ServerTemplate {
             id: parse_uuid(&self.id)?,
             name: self.name,
@@ -193,6 +195,8 @@ impl IntoDomain for TemplateRow {
             updated_at: parse_timestamp(&self.updated_at)?,
             is_builtin: self.is_builtin != 0,
             requires_steamcmd,
+            requires_curseforge,
+            requires_github,
         })
     }
 }

@@ -63,10 +63,10 @@ pub async fn list_templates(
     let user_templates = state.db.list_templates().await?;
     templates.extend(user_templates);
 
-    // Compute `requires_steamcmd` for every template
+    // Compute all `requires_*` integration flags for every template
     let templates: Vec<ServerTemplate> = templates
         .into_iter()
-        .map(|t| t.with_steamcmd_flag())
+        .map(|t| t.with_integration_flags())
         .collect();
 
     // Check SteamCMD availability (cached PATH lookup, no subprocess)
@@ -75,9 +75,30 @@ pub async fn list_templates(
             .await
             .unwrap_or(false);
 
+    // Check CurseForge / GitHub integration availability
+    let curseforge_available = state
+        .db
+        .get_curseforge_settings()
+        .await
+        .ok()
+        .flatten()
+        .and_then(|s| s.api_key)
+        .is_some();
+
+    let github_available = state
+        .db
+        .get_github_settings()
+        .await
+        .ok()
+        .flatten()
+        .and_then(|s| s.api_token)
+        .is_some();
+
     Ok(Json(TemplateListResponse {
         templates,
         steamcmd_available,
+        curseforge_available,
+        github_available,
     }))
 }
 
@@ -88,12 +109,12 @@ pub async fn get_template(
     Path(id): Path<Uuid>,
 ) -> Result<Json<ServerTemplate>, AppError> {
     if let Some(builtin) = builtin::get(id) {
-        return Ok(Json(builtin.clone().with_steamcmd_flag()));
+        return Ok(Json(builtin.clone().with_integration_flags()));
     }
 
     let template = state.db.require_template(id).await?;
 
-    Ok(Json(template.with_steamcmd_flag()))
+    Ok(Json(template.with_integration_flags()))
 }
 
 /// POST /api/templates
@@ -115,6 +136,8 @@ pub async fn create_template(
 
     let now = Utc::now();
     let requires_steamcmd = steamcmd::config_requires_steamcmd(&req.config);
+    let requires_curseforge = crate::types::template::config_requires_curseforge(&req.config);
+    let requires_github = crate::types::template::config_requires_github(&req.config);
     let template = ServerTemplate {
         id: Uuid::new_v4(),
         name: req.name,
@@ -125,6 +148,8 @@ pub async fn create_template(
         updated_at: now,
         is_builtin: false,
         requires_steamcmd,
+        requires_curseforge,
+        requires_github,
     };
 
     state.db.insert_template(&template).await?;

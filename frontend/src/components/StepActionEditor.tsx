@@ -5,6 +5,7 @@ import {
   createSignal,
   createEffect,
 } from "solid-js";
+import { A } from "@solidjs/router";
 import type {
   StepAction,
   StopSignal,
@@ -12,6 +13,8 @@ import type {
   FileOperation,
 } from "../types/bindings";
 import ParamRefHint from "./ParamRefHint";
+import { useIntegrationStatus } from "../context/integrations";
+import { useAuth } from "../context/auth";
 
 const ACTION_TYPES = [
   { value: "download", label: "Download" },
@@ -198,6 +201,8 @@ interface Props {
 }
 
 const StepActionEditor: Component<Props> = (props) => {
+  const integrations = useIntegrationStatus();
+  const auth = useAuth();
   const paramNames = () => props.parameterNames ?? [];
 
   const [argsText, setArgsText] = createSignal("");
@@ -940,6 +945,43 @@ const StepActionEditor: Component<Props> = (props) => {
     >;
     return (
       <div class="step-action-fields">
+        {/* GitHub token not configured — soft info, not a blocker */}
+        <Show when={!integrations.status().github_configured}>
+          <div
+            style={{
+              display: "flex",
+              "align-items": "flex-start",
+              gap: "0.5rem",
+              padding: "0.5rem 0.75rem",
+              background: "rgba(250, 204, 21, 0.06)",
+              border: "1px solid rgba(250, 204, 21, 0.2)",
+              "border-radius": "0.375rem",
+              "margin-bottom": "0.75rem",
+              "font-size": "0.82rem",
+              color: "#fde68a",
+            }}
+          >
+            <span style={{ "flex-shrink": "0" }}>ℹ️</span>
+            <div>
+              <strong>No GitHub token configured.</strong> This step works fine
+              for public repos — private repos and higher rate limits require a
+              token.
+              <Show when={auth.isAdmin()}>
+                {" "}
+                <A
+                  href="/admin"
+                  style={{
+                    color: "#facc15",
+                    "text-decoration": "underline",
+                  }}
+                  onClick={() => sessionStorage.setItem("admin_tab", "github")}
+                >
+                  Configure →
+                </A>
+              </Show>
+            </div>
+          </div>
+        </Show>
         <div class="form-group">
           <label>Tag Parameter</label>
           <input
@@ -1013,6 +1055,52 @@ const StepActionEditor: Component<Props> = (props) => {
 
     return (
       <div class="step-action-fields">
+        {/* CurseForge integration not configured warning */}
+        <Show when={!integrations.status().curseforge_configured}>
+          <div
+            style={{
+              display: "flex",
+              "align-items": "flex-start",
+              gap: "0.5rem",
+              padding: "0.6rem 0.75rem",
+              background: "rgba(249, 115, 22, 0.08)",
+              border: "1px solid rgba(249, 115, 22, 0.3)",
+              "border-radius": "0.375rem",
+              "margin-bottom": "0.75rem",
+              "font-size": "0.85rem",
+              color: "#fdba74",
+            }}
+          >
+            <span style={{ "flex-shrink": "0" }}>🔶</span>
+            <div>
+              <strong>CurseForge API key not configured.</strong> This step will
+              fail at runtime until an admin configures the API key.
+              <Show
+                when={auth.isAdmin()}
+                fallback={
+                  <span>
+                    {" "}
+                    Ask an admin to set it up in Admin Panel → CurseForge.
+                  </span>
+                }
+              >
+                {" "}
+                <A
+                  href="/admin"
+                  style={{
+                    color: "#fb923c",
+                    "text-decoration": "underline",
+                  }}
+                  onClick={() =>
+                    sessionStorage.setItem("admin_tab", "curseforge")
+                  }
+                >
+                  Configure CurseForge API key →
+                </A>
+              </Show>
+            </div>
+          </div>
+        </Show>
         <div class="form-group">
           <label>File Version Parameter</label>
           <Show

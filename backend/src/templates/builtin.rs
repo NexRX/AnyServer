@@ -255,6 +255,8 @@ fn minecraft_paper_template() -> ServerTemplate {
         updated_at: builtin_timestamp(),
         is_builtin: true,
         requires_steamcmd: false,
+        requires_curseforge: false,
+        requires_github: false,
     }
 }
 
@@ -419,6 +421,8 @@ fn valheim_template() -> ServerTemplate {
         updated_at: builtin_timestamp(),
         is_builtin: true,
         requires_steamcmd: true,
+        requires_curseforge: false,
+        requires_github: false,
     }
 }
 
@@ -694,6 +698,8 @@ fn terraria_tshock_template() -> ServerTemplate {
         updated_at: builtin_timestamp(),
         is_builtin: true,
         requires_steamcmd: false,
+        requires_curseforge: false,
+        requires_github: true,
     }
 }
 
@@ -988,6 +994,8 @@ fn prominence_2_template() -> ServerTemplate {
         updated_at: builtin_timestamp(),
         is_builtin: true,
         requires_steamcmd: false,
+        requires_curseforge: true,
+        requires_github: false,
     }
 }
 

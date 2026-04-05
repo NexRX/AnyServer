@@ -1,13 +1,10 @@
-import {
-  type Component,
-  createSignal,
-  Show,
-  onMount,
-} from "solid-js";
+import { type Component, createSignal, Show, onMount } from "solid-js";
 import Loader from "../Loader";
 import { getGithubSettings, saveGithubSettings } from "../../api/github";
+import { useIntegrationStatus } from "../../context/integrations";
 
 const GithubTab: Component = () => {
+  const integrations = useIntegrationStatus();
   const [loading, setLoading] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
@@ -45,6 +42,8 @@ const GithubTab: Component = () => {
       setSuccess("GitHub settings saved successfully");
       setApiToken("");
       await loadSettings();
+      // Refresh global integration status so other pages see the change
+      integrations.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -66,6 +65,8 @@ const GithubTab: Component = () => {
       setSuccess("GitHub API token removed");
       setHasToken(false);
       setApiToken("");
+      // Refresh global integration status so other pages see the change
+      integrations.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {

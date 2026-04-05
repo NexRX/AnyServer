@@ -299,3 +299,34 @@ pub struct GithubSettingsResponse {
     /// Whether a GitHub token is currently configured (doesn't reveal the actual token).
     pub has_token: bool,
 }
+
+// ─── Integration Status (unified feature flags) ───
+
+/// Unified integration/feature availability status.
+///
+/// Returned by `GET /api/integrations/status` to any authenticated user so
+/// the frontend can proactively hide, disable, or annotate features whose
+/// backing integrations haven't been configured by an admin.
+///
+/// **Security note:** This intentionally reveals *whether* integrations are
+/// configured but never exposes secrets (API keys, tokens, etc.).
+#[derive(Debug, Clone, Serialize, Deserialize, TS)]
+#[ts(export, export_to = "../../frontend/src/types/generated/")]
+pub struct IntegrationStatus {
+    /// Whether a CurseForge API key has been configured by an admin.
+    /// When `false`, CurseForge file-version dropdowns and
+    /// `DownloadCurseForgeFile` pipeline steps will fail at runtime.
+    pub curseforge_configured: bool,
+
+    /// Whether a GitHub Personal Access Token has been configured.
+    /// GitHub integration works without a token for public repositories
+    /// (with lower rate limits), but private repos require one.
+    /// When `false`, users may hit rate limits or fail on private repos.
+    pub github_configured: bool,
+
+    /// Whether the `steamcmd` binary is available on the host's PATH.
+    pub steamcmd_available: bool,
+
+    /// Whether SMTP email has been configured (for alert delivery).
+    pub smtp_configured: bool,
+}

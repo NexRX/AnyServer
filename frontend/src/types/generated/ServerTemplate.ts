@@ -13,4 +13,17 @@ is_builtin: boolean,
  * The frontend uses this to gray-out templates when SteamCMD is
  * not available on the host.
  */
-requires_steamcmd: boolean, };
+requires_steamcmd: boolean, 
+/**
+ * Computed at serialization time: `true` when the template's config
+ * has parameters of type `CurseForgeFileVersion` or uses
+ * `DownloadCurseForgeFile` step actions.  The frontend uses this to
+ * warn users when the CurseForge API key hasn't been configured.
+ */
+requires_curseforge: boolean, 
+/**
+ * Computed at serialization time: `true` when the template's config
+ * has parameters of type `GithubReleaseTag` or uses
+ * `DownloadGithubReleaseAsset` step actions.
+ */
+requires_github: boolean, };

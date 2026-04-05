@@ -2,6 +2,7 @@
 import { render } from "solid-js/web";
 import { Route, Router } from "@solidjs/router";
 import { AuthProvider } from "./context/auth";
+import { IntegrationStatusProvider } from "./context/integrations";
 import App from "./App";
 import Dashboard from "./pages/Dashboard";
 import ServerDetail from "./pages/ServerDetail";
@@ -23,18 +24,20 @@ if (!root) {
 render(
   () => (
     <AuthProvider>
-      <Router root={App}>
-        <Route path="/" component={Dashboard} />
-        <Route path="/create" component={CreateServer} />
-        <Route path="/server/:id" component={ServerDetail} />
-        <Route path="/templates" component={Templates} />
-        <Route path="/health" component={SystemHealth} />
-        <Route path="/login" component={Login} />
-        <Route path="/register" component={Register} />
-        <Route path="/setup" component={Setup} />
-        <Route path="/admin" component={AdminPanel} />
-        <Route path="*" component={NotFound} />
-      </Router>
+      <IntegrationStatusProvider>
+        <Router root={App}>
+          <Route path="/" component={Dashboard} />
+          <Route path="/create" component={CreateServer} />
+          <Route path="/server/:id" component={ServerDetail} />
+          <Route path="/templates" component={Templates} />
+          <Route path="/health" component={SystemHealth} />
+          <Route path="/login" component={Login} />
+          <Route path="/register" component={Register} />
+          <Route path="/setup" component={Setup} />
+          <Route path="/admin" component={AdminPanel} />
+          <Route path="*" component={NotFound} />
+        </Router>
+      </IntegrationStatusProvider>
     </AuthProvider>
   ),
   root,

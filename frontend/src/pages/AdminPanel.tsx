@@ -1,4 +1,10 @@
-import { type Component, createSignal, createEffect, Show } from "solid-js";
+import {
+  type Component,
+  createSignal,
+  createEffect,
+  Show,
+  onMount,
+} from "solid-js";
 import { useNavigate } from "@solidjs/router";
 import Loader from "../components/Loader";
 import { useAuth } from "../context/auth";
@@ -42,6 +48,32 @@ const AdminPanel: Component = () => {
   });
 
   const [tab, setTab] = createSignal<Tab>("users");
+
+  // Support deep-linking to a specific tab via sessionStorage.
+  // Other pages (e.g. integration warning banners) set "admin_tab"
+  // before navigating here so the user lands on the right settings tab.
+  onMount(() => {
+    const stored = sessionStorage.getItem("admin_tab");
+    if (stored) {
+      sessionStorage.removeItem("admin_tab");
+      const validTabs: Tab[] = [
+        "users",
+        "invites",
+        "permissions",
+        "settings",
+        "password",
+        "smtp",
+        "alerts",
+        "sessions",
+        "github",
+        "curseforge",
+        "sandbox",
+      ];
+      if (validTabs.includes(stored as Tab)) {
+        setTab(stored as Tab);
+      }
+    }
+  });
 
   return (
     <Show when={!auth.loading() && auth.isAdmin()} fallback={<Loader />}>

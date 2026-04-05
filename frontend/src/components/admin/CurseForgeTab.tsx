@@ -1,16 +1,13 @@
-import {
-  type Component,
-  createSignal,
-  Show,
-  onMount,
-} from "solid-js";
+import { type Component, createSignal, Show, onMount } from "solid-js";
 import Loader from "../Loader";
 import {
   getCurseForgeSettings,
   saveCurseForgeSettings,
 } from "../../api/curseforge";
+import { useIntegrationStatus } from "../../context/integrations";
 
 const CurseForgeTab: Component = () => {
+  const integrations = useIntegrationStatus();
   const [loading, setLoading] = createSignal(false);
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
@@ -48,6 +45,8 @@ const CurseForgeTab: Component = () => {
       setSuccess("CurseForge settings saved successfully");
       setApiKey("");
       await loadSettings();
+      // Refresh global integration status so other pages see the change
+      integrations.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -69,6 +68,8 @@ const CurseForgeTab: Component = () => {
       setSuccess("CurseForge API key removed");
       setHasKey(false);
       setApiKey("");
+      // Refresh global integration status so other pages see the change
+      integrations.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -184,11 +185,7 @@ const CurseForgeTab: Component = () => {
               class="btn btn-primary"
               disabled={saving() || !apiKey().trim()}
             >
-              {saving()
-                ? "Saving..."
-                : hasKey()
-                  ? "Update Key"
-                  : "Save Key"}
+              {saving() ? "Saving..." : hasKey() ? "Update Key" : "Save Key"}
             </button>
             <Show when={hasKey()}>
               <button

@@ -71,6 +71,9 @@ export type { FetchOptionsResponse } from "./generated/FetchOptionsResponse";
 export type { OptionsFrom } from "./generated/OptionsFrom";
 export type { OptionsSortOrder } from "./generated/OptionsSortOrder";
 
+// ─── Integration Status (unified feature flags) ───
+export type { IntegrationStatus } from "./generated/IntegrationStatus";
+
 // ─── CurseForge Integration ───
 export type { CurseForgeFileOption } from "./generated/CurseForgeFileOption";
 export type { CurseForgeFilesResponse } from "./generated/CurseForgeFilesResponse";

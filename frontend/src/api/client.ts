@@ -126,3 +126,5 @@ export {
   getSandboxCapabilities,
   toggleSandboxFeature,
 } from "./sandbox";
+
+export { getIntegrationStatus } from "./integrations";

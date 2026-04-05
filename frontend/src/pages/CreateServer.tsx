@@ -9,7 +9,7 @@ import {
 import Loader from "../components/Loader";
 import MarkdownRenderer from "../components/MarkdownRenderer";
 import SearchableSelect from "../components/SearchableSelect";
-import { useNavigate } from "@solidjs/router";
+import { A, useNavigate } from "@solidjs/router";
 import { createServer, listTemplates } from "../api/client";
 import { fetchOptions } from "../api/templates";
 import { fetchGithubReleases } from "../api/github";
@@ -21,6 +21,8 @@ import DotnetRuntimeSelector, {
   isDotnetBinary,
 } from "../components/DotnetRuntimeSelector";
 import WizardCreateServer from "../components/WizardCreateServer";
+import { useAuth } from "../context/auth";
+import { useIntegrationStatus } from "../context/integrations";
 import type {
   ServerConfig,
   ConfigParameter,
@@ -67,6 +69,8 @@ const defaultConfig: ServerConfig = {
 
 const CreateServer: Component = () => {
   const navigate = useNavigate();
+  const auth = useAuth();
+  const integrations = useIntegrationStatus();
   const [mode, setMode] = createSignal<CreationMode>("template");
   const [config, setConfig] = createSignal<ServerConfig>({ ...defaultConfig });
   const [parameterValues, setParameterValues] = createSignal<
@@ -403,6 +407,44 @@ const CreateServer: Component = () => {
               {param.label}
               {param.required && " *"}
             </label>
+            {/* ─── GitHub token not configured — soft info, not a blocker ─── */}
+            <Show when={!integrations.status().github_configured}>
+              <div
+                style={{
+                  display: "flex",
+                  "align-items": "flex-start",
+                  gap: "0.5rem",
+                  padding: "0.5rem 0.75rem",
+                  background: "rgba(250, 204, 21, 0.06)",
+                  border: "1px solid rgba(250, 204, 21, 0.2)",
+                  "border-radius": "0.375rem",
+                  "margin-bottom": "0.5rem",
+                  "font-size": "0.82rem",
+                  color: "#fde68a",
+                }}
+              >
+                <span style={{ "flex-shrink": "0" }}>ℹ️</span>
+                <div>
+                  <strong>No GitHub token configured.</strong> Public repos work
+                  fine — private repos and higher rate limits require a token.
+                  <Show when={auth.isAdmin()}>
+                    {" "}
+                    <A
+                      href="/admin"
+                      style={{
+                        color: "#facc15",
+                        "text-decoration": "underline",
+                      }}
+                      onClick={() =>
+                        sessionStorage.setItem("admin_tab", "github")
+                      }
+                    >
+                      Configure →
+                    </A>
+                  </Show>
+                </div>
+              </div>
+            </Show>
             <div
               style={{
                 display: "flex",
@@ -553,6 +595,53 @@ const CreateServer: Component = () => {
               {param.label}
               {param.required && " *"}
             </label>
+            {/* ─── CurseForge integration not configured warning ─── */}
+            <Show when={!integrations.status().curseforge_configured}>
+              <div
+                style={{
+                  display: "flex",
+                  "align-items": "flex-start",
+                  gap: "0.5rem",
+                  padding: "0.6rem 0.75rem",
+                  background: "rgba(249, 115, 22, 0.08)",
+                  border: "1px solid rgba(249, 115, 22, 0.3)",
+                  "border-radius": "0.375rem",
+                  "margin-bottom": "0.5rem",
+                  "font-size": "0.85rem",
+                  color: "#fdba74",
+                }}
+              >
+                <span style={{ "flex-shrink": "0" }}>🔶</span>
+                <div>
+                  <strong>CurseForge API key not configured.</strong> Loading
+                  file versions and downloading server packs will fail until an
+                  admin configures the API key.
+                  <Show
+                    when={auth.isAdmin()}
+                    fallback={
+                      <span>
+                        {" "}
+                        Ask an admin to set it up in Admin Panel → CurseForge.
+                      </span>
+                    }
+                  >
+                    {" "}
+                    <A
+                      href="/admin"
+                      style={{
+                        color: "#fb923c",
+                        "text-decoration": "underline",
+                      }}
+                      onClick={() =>
+                        sessionStorage.setItem("admin_tab", "curseforge")
+                      }
+                    >
+                      Configure CurseForge API key →
+                    </A>
+                  </Show>
+                </div>
+              </div>
+            </Show>
             <div
               style={{
                 display: "flex",
@@ -570,8 +659,13 @@ const CreateServer: Component = () => {
                       onInput={(e) =>
                         handleParamChange(param.name, e.currentTarget.value)
                       }
-                      placeholder="Click 'Load versions' to see options"
+                      placeholder={
+                        !integrations.status().curseforge_configured
+                          ? "CurseForge API key required — see warning above"
+                          : "Click 'Load versions' to see options"
+                      }
                       style={{ width: "100%" }}
+                      disabled={!integrations.status().curseforge_configured}
                     />
                   }
                 >
@@ -591,6 +685,14 @@ const CreateServer: Component = () => {
               <button
                 class="btn btn-sm"
                 onClick={async () => {
+                  if (!integrations.status().curseforge_configured) {
+                    setOptionErrors({
+                      ...optionErrors(),
+                      [param.name]:
+                        "CurseForge API key is not configured. Ask an admin to set it up in Admin Panel → CurseForge.",
+                    });
+                    return;
+                  }
                   if (!param.curseforge_project_id) {
                     setOptionErrors({
                       ...optionErrors(),
@@ -636,26 +738,45 @@ const CreateServer: Component = () => {
                     });
                   }
                 }}
-                disabled={isLoadingOpt()}
-                title="Fetch file versions from CurseForge"
+                disabled={
+                  isLoadingOpt() || !integrations.status().curseforge_configured
+                }
+                title={
+                  !integrations.status().curseforge_configured
+                    ? "CurseForge API key must be configured by an admin before loading versions"
+                    : "Fetch file versions from CurseForge"
+                }
                 style={{
                   "white-space": "nowrap",
                   "min-width": "fit-content",
-                  background: hasDynamic()
-                    ? "linear-gradient(135deg, #f97316 0%, #ea580c 100%)"
-                    : undefined,
-                  border: hasDynamic() ? "none" : undefined,
-                  color: hasDynamic() ? "#fff" : undefined,
-                  "box-shadow": hasDynamic()
-                    ? "0 2px 8px rgba(249, 115, 22, 0.3)"
-                    : undefined,
+                  ...(!integrations.status().curseforge_configured
+                    ? { opacity: "0.5", cursor: "not-allowed" }
+                    : {}),
+                  background:
+                    hasDynamic() && integrations.status().curseforge_configured
+                      ? "linear-gradient(135deg, #f97316 0%, #ea580c 100%)"
+                      : undefined,
+                  border:
+                    hasDynamic() && integrations.status().curseforge_configured
+                      ? "none"
+                      : undefined,
+                  color:
+                    hasDynamic() && integrations.status().curseforge_configured
+                      ? "#fff"
+                      : undefined,
+                  "box-shadow":
+                    hasDynamic() && integrations.status().curseforge_configured
+                      ? "0 2px 8px rgba(249, 115, 22, 0.3)"
+                      : undefined,
                 }}
               >
-                {isLoadingOpt()
-                  ? "Loading…"
-                  : hasDynamic()
-                    ? "↻ Refresh"
-                    : "🔍 Load versions"}
+                {!integrations.status().curseforge_configured
+                  ? "🔒 Not configured"
+                  : isLoadingOpt()
+                    ? "Loading…"
+                    : hasDynamic()
+                      ? "↻ Refresh"
+                      : "🔍 Load versions"}
               </button>
             </div>
             <Show when={optError()}>

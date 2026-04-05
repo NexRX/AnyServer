@@ -766,18 +766,18 @@ fn prominence_2_install_steps() -> Vec<PipelineStep> {
             name: "Make startup script executable".into(),
             description: Some("Ensure the NeoForge/Forge startup script has execute permission.".into()),
             action: StepAction::SetPermissions {
-                path: "startserver.sh".into(),
+                path: "start.sh".into(),
                 mode: "755".into(),
             },
             condition: Some(StepCondition {
-                path_exists: Some("startserver.sh".into()),
+                path_exists: Some("start.sh".into()),
                 path_not_exists: None,
             }),
             continue_on_error: true,
         },
         PipelineStep {
             name: "Make run script executable".into(),
-            description: Some("Some modpacks use run.sh instead of startserver.sh.".into()),
+            description: Some("Some modpacks use run.sh instead of start.sh.".into()),
             action: StepAction::SetPermissions {
                 path: "run.sh".into(),
                 mode: "755".into(),
@@ -807,7 +807,7 @@ fn prominence_2_template() -> ServerTemplate {
         ),
         config: ServerConfig {
             name: "Prominence II Server".into(),
-            // The server pack ships a startserver.sh that handles
+            // The server pack ships a start.sh that handles
             // NeoForge installer bootstrapping and launching.
             binary: "./start.sh".into(),
             args: vec![],
@@ -957,18 +957,18 @@ fn prominence_2_template() -> ServerTemplate {
                         name: "Make startup script executable".into(),
                         description: Some("Ensure the startup script has execute permission after update.".into()),
                         action: StepAction::SetPermissions {
-                            path: "startserver.sh".into(),
+                            path: "start.sh".into(),
                             mode: "755".into(),
                         },
                         condition: Some(StepCondition {
-                            path_exists: Some("startserver.sh".into()),
+                            path_exists: Some("start.sh".into()),
                             path_not_exists: None,
                         }),
                         continue_on_error: true,
                     },
                     PipelineStep {
                         name: "Make run script executable".into(),
-                        description: Some("Some modpacks use run.sh instead of startserver.sh.".into()),
+                        description: Some("Some modpacks use run.sh instead of start.sh.".into()),
                         action: StepAction::SetPermissions {
                             path: "run.sh".into(),
                             mode: "755".into(),

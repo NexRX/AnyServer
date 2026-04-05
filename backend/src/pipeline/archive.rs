@@ -35,11 +35,43 @@ pub fn extract_zip(source: &Path, dest: &Path) -> Result<(), String> {
         if entry.is_dir() {
             std::fs::create_dir_all(&out_path)
                 .map_err(|e| format!("Failed to create directory {:?}: {}", out_path, e))?;
+            // Ensure the directory is writable so future extractions can
+            // create files inside it even if the zip entry has a read-only mode.
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(meta) = std::fs::metadata(&out_path) {
+                    let mode = meta.permissions().mode();
+                    if mode & 0o200 == 0 {
+                        let _ = std::fs::set_permissions(
+                            &out_path,
+                            std::fs::Permissions::from_mode(mode | 0o700),
+                        );
+                    }
+                }
+            }
         } else {
             if let Some(parent) = out_path.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| {
                     format!("Failed to create parent directory {:?}: {}", parent, e)
                 })?;
+            }
+            // If the file already exists with read-only permissions (e.g.
+            // from a previous extraction that preserved the zip entry's
+            // unix mode), `File::create` will fail with "Permission
+            // denied".  Make it writable first so we can overwrite it.
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                if let Ok(meta) = std::fs::metadata(&out_path) {
+                    let mode = meta.permissions().mode();
+                    if mode & 0o200 == 0 {
+                        let _ = std::fs::set_permissions(
+                            &out_path,
+                            std::fs::Permissions::from_mode(mode | 0o600),
+                        );
+                    }
+                }
             }
             let mut outfile = std::fs::File::create(&out_path)
                 .map_err(|e| format!("Failed to create file {:?}: {}", out_path, e))?;

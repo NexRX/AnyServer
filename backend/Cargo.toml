@@ -44,7 +44,7 @@ dashmap = "6"
 parking_lot = "0.12"
 
 # SFTP server
-russh = "0.46"
+russh = "0.60"
 russh-sftp = "2.0"
 russh-keys = "0.46"
 async-trait = "0.1"
